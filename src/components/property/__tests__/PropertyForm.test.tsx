@@ -188,4 +188,62 @@ describe('PropertyForm Component', () => {
 
     expect(mockOnCancel).toHaveBeenCalledTimes(1);
   });
+
+  it('disables submit button and guards submission while brochure upload is in-flight', async () => {
+    let resolveUpload: (val: any) => void;
+    const uploadPromise = new Promise((resolve) => {
+      resolveUpload = resolve;
+    });
+    (storageService.uploadBrochureToOneDrive as any).mockReturnValue(uploadPromise);
+
+    render(<PropertyForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+    const pdfInput = screen.getByTestId('brochure-file-input');
+    const mockFile = new File(['%PDF-1.4'], 'brochure.pdf', { type: 'application/pdf' });
+
+    fireEvent.change(pdfInput, { target: { files: [mockFile] } });
+
+    const submitBtn = screen.getByRole('button', { name: /uploading brochure/i });
+    expect(submitBtn).toBeDisabled();
+
+    fireEvent.submit(submitBtn.closest('form')!);
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+
+    resolveUpload!({
+      fileName: 'brochure.pdf',
+      webUrl: 'https://1drv.ms/b/mock',
+      embedUrl: 'https://onedrive.live.com/embed?resid=MOCK',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /create property/i })).not.toBeDisabled();
+    });
+  });
+
+  it('disables submit button and guards submission while photo upload is in-flight', async () => {
+    let resolvePhoto: (val: any) => void;
+    const photoPromise = new Promise((resolve) => {
+      resolvePhoto = resolve;
+    });
+    (storageService.compressAndUploadPhoto as any).mockReturnValue(photoPromise);
+
+    render(<PropertyForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+    const photoInput = screen.getByTestId('photos-file-input');
+    const mockFile = new File(['image'], 'unit.jpg', { type: 'image/jpeg' });
+
+    fireEvent.change(photoInput, { target: { files: [mockFile] } });
+
+    const submitBtn = screen.getByRole('button', { name: /uploading photos/i });
+    expect(submitBtn).toBeDisabled();
+
+    fireEvent.submit(submitBtn.closest('form')!);
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+
+    resolvePhoto!('https://cdn.supabase.co/unit.webp');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /create property/i })).not.toBeDisabled();
+    });
+  });
 });

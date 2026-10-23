@@ -62,7 +62,9 @@ describe('Storage Service', () => {
         expect(mockFetch).toHaveBeenCalled();
         const [url, options] = mockFetch.mock.calls[0];
         expect(url).toContain('graph.microsoft.com');
-        expect(url).toContain('RealtorBuddy/Brochures/dubai_tower.pdf');
+        expect(url).toContain('RealtorBuddy/Brochures/');
+        expect(url).toContain('dubai_tower.pdf');
+        expect(url).toContain('@microsoft.graph.conflictBehavior=rename');
         expect(options.headers.Authorization).toBe('Bearer mock-ms-token');
         expect(result.fileName).toBe('dubai_tower.pdf');
         expect(result.webUrl).toContain('tenant-my.sharepoint.com');

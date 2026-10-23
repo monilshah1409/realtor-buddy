@@ -37,8 +37,13 @@ export async function uploadBrochureToOneDrive(file: File): Promise<OneDriveUplo
     null;
 
   if (msGraphToken) {
-    const encodedFileName = encodeURIComponent(file.name);
-    const endpoint = `https://graph.microsoft.com/v1.0/me/drive/root:/RealtorBuddy/Brochures/${encodedFileName}:/content`;
+    const fileExt = file.name.includes('.') ? file.name.split('.').pop() : 'pdf';
+    const cleanBaseName = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    const uniqueFileName = `${Date.now()}_${cleanBaseName}.${fileExt}`;
+    const encodedUniqueFileName = encodeURIComponent(uniqueFileName);
+    const endpoint = `https://graph.microsoft.com/v1.0/me/drive/root:/RealtorBuddy/Brochures/${encodedUniqueFileName}:/content?@microsoft.graph.conflictBehavior=rename`;
 
     const response = await fetch(endpoint, {
       method: 'PUT',
@@ -55,7 +60,7 @@ export async function uploadBrochureToOneDrive(file: File): Promise<OneDriveUplo
     }
 
     const data = await response.json();
-    const driveItemId = data.id || encodedFileName;
+    const driveItemId = data.id || encodedUniqueFileName;
     const webUrl = data.webUrl || `https://1drv.ms/b/s!${driveItemId}`;
     const embedUrl = data.webUrl && data.webUrl.includes('onedrive.live.com')
       ? data.webUrl
@@ -64,15 +69,16 @@ export async function uploadBrochureToOneDrive(file: File): Promise<OneDriveUplo
     return {
       webUrl,
       embedUrl,
-      fileName: data.name || file.name,
+      fileName: file.name,
     };
   }
 
   // Mock / Sandbox fallback for offline dev & test execution
   const sanitizedName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
-  const mockResId = `MOCK_ONEDRIVE_${sanitizedName}`;
+  const uniquePrefix = Date.now().toString(36);
+  const mockResId = `MOCK_ONEDRIVE_${uniquePrefix}_${sanitizedName}`;
   const embedUrl = `https://onedrive.live.com/embed?resid=${mockResId}`;
-  const webUrl = `https://1drv.ms/b/s!mock-${encodeURIComponent(file.name)}`;
+  const webUrl = `https://1drv.ms/b/s!mock-${uniquePrefix}-${encodeURIComponent(file.name)}`;
 
   return {
     webUrl,

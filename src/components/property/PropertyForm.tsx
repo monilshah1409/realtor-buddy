@@ -251,6 +251,10 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
   // Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Guard against in-flight uploads
+    if (isUploadingBrochure || isUploadingPhotos) {
+      return;
+    }
     if (!validate()) {
       return;
     }
@@ -286,7 +290,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
     }
   };
 
-  const submitting = isSubmitting || localSubmitting;
+  const submitting = isSubmitting || localSubmitting || isUploadingBrochure || isUploadingPhotos;
 
   return (
     <form
@@ -772,7 +776,13 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
           className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-md shadow-blue-500/20 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all disabled:opacity-50 flex items-center gap-2"
         >
           {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-          {initialData?.id ? 'Save Property' : 'Create Property'}
+          {isUploadingBrochure
+            ? 'Uploading Brochure...'
+            : isUploadingPhotos
+            ? 'Uploading Photos...'
+            : initialData?.id
+            ? 'Save Property'
+            : 'Create Property'}
         </button>
       </div>
     </form>
