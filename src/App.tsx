@@ -9,6 +9,14 @@ import { PublicPropertyView } from './pages/public/PublicPropertyView';
 import { PublicShortlistView } from './pages/public/PublicShortlistView';
 import SubscriptionPage from './pages/auth/SubscriptionPage';
 import PaywallGate from './components/auth/PaywallGate';
+import { FeedbackModal } from './components/feedback/FeedbackModal';
+import { FeedbackButton } from './components/feedback/FeedbackButton';
+import { DeviceLimitModal } from './components/auth/DeviceLimitModal';
+import {
+  validateOrRegisterDevice,
+  disconnectDevice,
+  type UserDeviceSession,
+} from './services/sessionService';
 
 export interface AppProps {
   initialPath?: string;
@@ -43,6 +51,42 @@ export function App({
 
   // Shortlist drawer state
   const [isShortlistDrawerOpen, setIsShortlistDrawerOpen] = useState(false);
+
+  // Global Feedback Modal State
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+
+  // Device Concurrency Lock State (Max 3 Devices)
+  const [isDeviceBlocked, setIsDeviceBlocked] = useState(false);
+  const [activeDeviceSessions, setActiveDeviceSessions] = useState<UserDeviceSession[]>([]);
+
+  // Check device concurrency on authenticated routes
+  useEffect(() => {
+    let isMounted = true;
+    if (userProfile && userProfile.id) {
+      validateOrRegisterDevice(userProfile.id).then((res) => {
+        if (!isMounted) return;
+        if (!res.allowed) {
+          setIsDeviceBlocked(true);
+          setActiveDeviceSessions(res.activeSessions);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [userProfile?.id]);
+
+  const handleDisconnectSession = async (sessionId: string) => {
+    await disconnectDevice(sessionId);
+    if (userProfile && userProfile.id) {
+      const res = await validateOrRegisterDevice(userProfile.id);
+      if (res.allowed) {
+        setIsDeviceBlocked(false);
+      } else {
+        setActiveDeviceSessions(res.activeSessions);
+      }
+    }
+  };
 
   // Client-side navigation handler
   const navigateTo = (path: string) => {
@@ -130,29 +174,39 @@ export function App({
     );
   };
 
-  // ROUTE DISPATCHING:
-  // 1. Public Unauthenticated Property View: /share/:shareToken
-  if (currentPath.startsWith('/share/')) {
+  // Resolve main page content
+  let mainContent: React.ReactNode;
+
+  if (isDeviceBlocked) {
+    mainContent = (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <DeviceLimitModal
+          isOpen={true}
+          activeSessions={activeDeviceSessions}
+          onDisconnectDevice={handleDisconnectSession}
+        />
+      </div>
+    );
+  } else if (currentPath.startsWith('/share/')) {
+    // 1. Public Unauthenticated Property View: /share/:shareToken
     const token = currentPath.replace('/share/', '');
     const matchedProperty =
       properties.find((p) => p.share_token === token || p.id === token) || properties[0];
 
-    return (
+    mainContent = (
       <PublicPropertyView
         property={matchedProperty}
         agent={userProfile}
         showBackButton={false}
       />
     );
-  }
-
-  // 2. Public Unauthenticated Shortlist View: /shortlist/:shareToken
-  if (currentPath.startsWith('/shortlist/')) {
+  } else if (currentPath.startsWith('/shortlist/')) {
+    // 2. Public Unauthenticated Shortlist View: /shortlist/:shareToken
     const shortlistedProps = properties.filter((p) => shortlistedIds.includes(p.id));
     const displayProperties =
       shortlistedProps.length > 0 ? shortlistedProps : properties.slice(0, 3);
 
-    return (
+    mainContent = (
       <PublicShortlistView
         properties={displayProperties}
         agent={userProfile}
@@ -160,11 +214,9 @@ export function App({
         notes="Curated collection of premier properties selected specifically for your Dubai investment portfolio."
       />
     );
-  }
-
-  // 3. Subscription Page (Direct Checkout): /subscribe
-  if (currentPath === '/subscribe') {
-    return (
+  } else if (currentPath === '/subscribe') {
+    // 3. Subscription Page (Direct Checkout): /subscribe
+    mainContent = (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <SubscriptionPage
           userEmail="agent@realtorbuddy.ae"
@@ -178,54 +230,69 @@ export function App({
         />
       </div>
     );
+  } else {
+    // 4. Protected Routes (Wrapped in PaywallGate & displaying Navbar)
+    mainContent = (
+      <PaywallGate profile={userProfile} user={{ email: 'agent@realtorbuddy.ae' }}>
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+          {/* Navigation Bar */}
+          <Navbar
+            currentPath={currentPath}
+            onNavigate={navigateTo}
+            userProfile={userProfile}
+            onProfileChange={setUserProfile}
+            pendingApprovalsCount={pendingApprovalsCount}
+            shortlistCount={shortlistedIds.length}
+            onOpenShortlist={() => setIsShortlistDrawerOpen(true)}
+          />
+
+          {/* Content Body Based on Current Path */}
+          {currentPath === '/properties/new' ? (
+            <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <PropertyForm
+                onSubmit={handleCreateProperty}
+                onCancel={() => navigateTo('/')}
+              />
+            </div>
+          ) : currentPath === '/admin/approvals' ? (
+            <div className="flex-1">
+              <AdminApprovals
+                pendingProperties={properties.filter((p) => p.status === 'private')}
+                onApprove={handleApproveProperty}
+                onReject={handleRejectProperty}
+              />
+            </div>
+          ) : (
+            /* Default: Agent Dashboard (Browse & Map) */
+            <Dashboard
+              properties={properties.filter((p) => p.status !== 'rejected')}
+              agentProfile={userProfile}
+              shortlistedIds={shortlistedIds}
+              onToggleShortlist={handleToggleShortlist}
+              onClearShortlist={handleClearShortlist}
+              onNavigate={navigateTo}
+              isShortlistDrawerOpen={isShortlistDrawerOpen}
+              onCloseShortlistDrawer={() => setIsShortlistDrawerOpen(false)}
+            />
+          )}
+        </div>
+      </PaywallGate>
+    );
   }
 
-  // 4. Protected Routes (Wrapped in PaywallGate & displaying Navbar)
   return (
-    <PaywallGate profile={userProfile} user={{ email: 'agent@realtorbuddy.ae' }}>
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        {/* Navigation Bar */}
-        <Navbar
-          currentPath={currentPath}
-          onNavigate={navigateTo}
-          userProfile={userProfile}
-          onProfileChange={setUserProfile}
-          pendingApprovalsCount={pendingApprovalsCount}
-          shortlistCount={shortlistedIds.length}
-          onOpenShortlist={() => setIsShortlistDrawerOpen(true)}
-        />
+    <>
+      {mainContent}
 
-        {/* Content Body Based on Current Path */}
-        {currentPath === '/properties/new' ? (
-          <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <PropertyForm
-              onSubmit={handleCreateProperty}
-              onCancel={() => navigateTo('/')}
-            />
-          </div>
-        ) : currentPath === '/admin/approvals' ? (
-          <div className="flex-1">
-            <AdminApprovals
-              pendingProperties={properties.filter((p) => p.status === 'private')}
-              onApprove={handleApproveProperty}
-              onReject={handleRejectProperty}
-            />
-          </div>
-        ) : (
-          /* Default: Agent Dashboard (Browse & Map) */
-          <Dashboard
-            properties={properties.filter((p) => p.status !== 'rejected')}
-            agentProfile={userProfile}
-            shortlistedIds={shortlistedIds}
-            onToggleShortlist={handleToggleShortlist}
-            onClearShortlist={handleClearShortlist}
-            onNavigate={navigateTo}
-            isShortlistDrawerOpen={isShortlistDrawerOpen}
-            onCloseShortlistDrawer={() => setIsShortlistDrawerOpen(false)}
-          />
-        )}
-      </div>
-    </PaywallGate>
+      {/* Universal Feedback / Complaint Button & Modal (On every page) */}
+      <FeedbackButton onClick={() => setIsFeedbackModalOpen(true)} />
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        userEmail="agent@realtorbuddy.ae"
+        userName={userProfile?.full_name || 'Dubai Broker'}
+      />
+    </>
   );
 }
 

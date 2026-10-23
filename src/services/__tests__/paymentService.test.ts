@@ -4,6 +4,8 @@ import {
   getSubscriptionPlan,
   createCheckoutSession,
   verifySessionStatus,
+  validateCouponCode,
+  validateReferralCode,
 } from '../paymentService';
 
 describe('paymentService', () => {
@@ -33,6 +35,47 @@ describe('paymentService', () => {
     expect(nonExistent).toBeUndefined();
   });
 
+  describe('Coupon & Referral Validation', () => {
+    it('validates percentage coupon SPECIAL20 and calculates 20% discount', () => {
+      const res = validateCouponCode('SPECIAL20', 499);
+      expect(res.valid).toBe(true);
+      expect(res.discountAed).toBe(100); // 20% of 499 rounded
+    });
+
+    it('validates flat AED coupon VIP100', () => {
+      const res = validateCouponCode('vip100', 499);
+      expect(res.valid).toBe(true);
+      expect(res.discountAed).toBe(100);
+    });
+
+    it('validates 100% launch pass LAUNCH100', () => {
+      const res = validateCouponCode('LAUNCH100', 499);
+      expect(res.valid).toBe(true);
+      expect(res.discountAed).toBe(499);
+    });
+
+    it('rejects invalid coupon codes with helpful message', () => {
+      const res = validateCouponCode('INVALID_CODE', 499);
+      expect(res.valid).toBe(false);
+      expect(res.discountAed).toBe(0);
+      expect(res.errorMessage).toMatch(/invalid or expired/i);
+    });
+
+    it('validates broker referral codes and calculates 10% referee discount', () => {
+      const res = validateReferralCode('KARIM-DUBAI', 499);
+      expect(res.valid).toBe(true);
+      expect(res.discountPercent).toBe(10);
+      expect(res.discountAed).toBe(50); // 10% of 499 rounded
+      expect(res.referrerName).toBe('Karim Al-Sayed');
+    });
+
+    it('rejects unrecognized referral codes', () => {
+      const res = validateReferralCode('FAKE-CODE', 499);
+      expect(res.valid).toBe(false);
+      expect(res.errorMessage).toMatch(/invalid/i);
+    });
+  });
+
   describe('createCheckoutSession', () => {
     it('creates deterministic sandbox checkout session with Apple Pay support when no gateway key is set', async () => {
       const session = await createCheckoutSession('monthly', 'agent@dubairealty.com');
@@ -42,6 +85,30 @@ describe('paymentService', () => {
       expect(session.checkoutUrl).toContain('checkout');
       expect(session.checkoutUrl).toContain('monthly');
       expect(session.checkoutUrl).toContain('apple_pay=true');
+      expect(session.autoRenew).toBe(true);
+    });
+
+    it('passes autoRenew=false and applies coupon discount to session', async () => {
+      const session = await createCheckoutSession('monthly', 'agent@dubairealty.com', {
+        autoRenew: false,
+        couponCode: 'SPECIAL20',
+      });
+
+      expect(session.autoRenew).toBe(false);
+      expect(session.finalPriceAed).toBe(399);
+      expect(session.checkoutUrl).toContain('autorenew=false');
+      expect(session.checkoutUrl).toContain('amount=399');
+    });
+
+    it('activates directly with 0 AED when 100% discount coupon is applied', async () => {
+      const session = await createCheckoutSession('monthly', 'agent@dubairealty.com', {
+        couponCode: 'LAUNCH100',
+      });
+
+      expect(session.isZeroAed).toBe(true);
+      expect(session.finalPriceAed).toBe(0);
+      expect(session.checkoutUrl).toBe('');
+      expect(session.sessionId).toContain('zero_promo_');
     });
 
     it('creates annual checkout session with correct plan parameters', async () => {

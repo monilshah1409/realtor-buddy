@@ -93,7 +93,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           {score ? (
             <div
               data-testid="property-card-score-badge"
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border backdrop-blur-md shadow-md pointer-events-auto ${tierConfig.badgeBg}`}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border backdrop-blur-md shadow-md pointer-events-auto shrink-0 ${tierConfig.badgeBg}`}
             >
               <span>⭐</span>
               <span>{Math.round(score.totalScore)}% Match</span>
@@ -103,28 +103,28 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           )}
 
           {/* Handover Timeline Pill */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-black/60 text-white backdrop-blur-md border border-white/20 shadow-md">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-black/60 text-white backdrop-blur-md border border-white/20 shadow-md shrink-0">
             <span>{isReady ? '🔑' : '🏗️'}</span>
-            <span>{property.handover_date}</span>
+            <span className="whitespace-nowrap">{property.handover_date}</span>
           </div>
         </div>
 
         {/* Bottom Image Overlay: Locality & Community */}
-        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between pointer-events-none">
-          <div className="bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/40 shadow-sm flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2 pointer-events-none">
+          <div className="bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/40 shadow-sm flex items-center gap-1.5 text-xs font-semibold text-slate-800 min-w-0 max-w-[70%] truncate">
             <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>{property.locality}</span>
+            <span className="truncate">{property.locality}</span>
             {property.sub_community && (
               <>
-                <span className="text-slate-400">•</span>
-                <span className="text-slate-600 font-normal">{property.sub_community}</span>
+                <span className="text-slate-400 shrink-0">•</span>
+                <span className="text-slate-600 font-normal truncate">{property.sub_community}</span>
               </>
             )}
           </div>
 
           {score?.budgetTag && (
             <span
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md backdrop-blur-md border ${
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md backdrop-blur-md border shrink-0 whitespace-nowrap ${
                 score.isStretchMatch
                   ? 'bg-amber-500/90 text-white border-amber-300'
                   : 'bg-emerald-600/90 text-white border-emerald-400'
@@ -147,27 +147,27 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         </h3>
 
         {/* Specs Row: Beds, Baths, Sqft */}
-        <div className="flex items-center gap-4 text-xs font-medium text-slate-600 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100">
-          <div className="flex items-center gap-1.5">
-            <Bed className="w-4 h-4 text-slate-400" />
+        <div className="flex items-center justify-between text-xs font-medium text-slate-600 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Bed className="w-4 h-4 text-slate-400 shrink-0" />
             <span>{property.bedrooms === 0 ? 'Studio' : `${property.bedrooms} Bed`}</span>
           </div>
-          <div className="w-px h-3.5 bg-slate-200" />
-          <div className="flex items-center gap-1.5">
-            <Bath className="w-4 h-4 text-slate-400" />
+          <div className="w-px h-3.5 bg-slate-200 shrink-0" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Bath className="w-4 h-4 text-slate-400 shrink-0" />
             <span>{property.bathrooms} Bath</span>
           </div>
-          <div className="w-px h-3.5 bg-slate-200" />
-          <div className="flex items-center gap-1.5">
-            <Maximize2 className="w-3.5 h-3.5 text-slate-400" />
+          <div className="w-px h-3.5 bg-slate-200 shrink-0" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Maximize2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>{property.area_sqft.toLocaleString()} sqft</span>
           </div>
         </div>
 
         {/* Developer & Wholesale Price for Authenticated Agents */}
         {showAgentDetails && (
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-            <div className="min-w-0 pr-2">
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1 text-[11px] font-medium text-slate-500">
                 <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
                 <span className="truncate" title={property.developer_name}>
@@ -180,7 +180,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             </div>
 
             <div className="text-right shrink-0">
-              <div className="text-lg font-black text-slate-900 tracking-tight">
+              <div className="text-base sm:text-lg font-black text-slate-900 tracking-tight whitespace-nowrap">
                 AED {property.price_aed.toLocaleString()}
               </div>
             </div>
@@ -195,7 +195,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
               e.stopPropagation();
               onAddToShortlist?.(property);
             }}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl transition-all shadow-xs ${
+            className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl transition-all shadow-xs ${
               isShortlisted
                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
                 : 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98]'
@@ -204,13 +204,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           >
             {isShortlisted ? (
               <>
-                <BookmarkCheck className="w-4 h-4 text-emerald-700" />
-                <span>Shortlisted</span>
+                <BookmarkCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span className="truncate">Shortlisted</span>
               </>
             ) : (
               <>
-                <Bookmark className="w-4 h-4" />
-                <span>Add to Shortlist</span>
+                <Bookmark className="w-4 h-4 shrink-0" />
+                <span className="truncate">Add to Shortlist</span>
               </>
             )}
           </button>
@@ -221,7 +221,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
               e.stopPropagation();
               onShareLink?.(property);
             }}
-            className="flex items-center justify-center p-2 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+            className="shrink-0 flex items-center justify-center p-2 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
             title="Share Property Link"
             aria-label="Share Link"
           >
@@ -234,7 +234,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center justify-center p-2 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+              className="shrink-0 flex items-center justify-center p-2 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
               title="View OneDrive Brochure"
               aria-label="View Brochure"
             >

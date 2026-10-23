@@ -51,6 +51,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLocalShortlistOpen, setIsLocalShortlistOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'list' | 'map'>('list');
 
   const showShortlistDrawer = isShortlistDrawerOpen || isLocalShortlistOpen;
 
@@ -196,10 +197,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
           }}
         />
 
+        {/* Mobile View Switcher (< lg screens) */}
+        <div className="flex lg:hidden items-center p-1 bg-slate-200/80 rounded-xl" role="tablist" aria-label="Dashboard View Switcher">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobileTab === 'list'}
+            onClick={() => setMobileTab('list')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all ${
+              mobileTab === 'list'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-emerald-600" />
+            <span>List View ({scoredProperties.length})</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobileTab === 'map'}
+            onClick={() => setMobileTab('map')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all ${
+              mobileTab === 'map'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Dubai Map</span>
+          </button>
+        </div>
+
         {/* Responsive Split View: Left Cards List | Right Leaflet DubaiMap */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Property List Cards (7 cols on desktop) */}
-          <div className="lg:col-span-7 space-y-4">
+          <div className={`lg:col-span-7 min-w-0 space-y-4 ${mobileTab === 'map' ? 'hidden lg:block' : 'block'}`}>
             <PropertyList
               properties={scoredProperties}
               selectedPropertyId={selectedPropertyId}
@@ -219,7 +252,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Right Column: Sticky Interactive DubaiMap (5 cols on desktop) */}
-          <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-3">
+          <div className={`lg:col-span-5 min-w-0 lg:sticky lg:top-20 space-y-3 ${mobileTab === 'list' ? 'hidden lg:block' : 'block'}`}>
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                 <MapPin className="w-3.5 h-3.5 text-emerald-600" />

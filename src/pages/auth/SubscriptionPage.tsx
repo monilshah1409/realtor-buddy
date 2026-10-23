@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import {
   SUBSCRIPTION_PLANS,
   createCheckoutSession,
+  validateCouponCode,
+  validateReferralCode,
+  type CouponValidationResult,
+  type ReferralValidationResult,
 } from '../../services/paymentService';
+import { Tag, Users, RefreshCw, CheckCircle, Sparkles } from 'lucide-react';
 
 interface SubscriptionPageProps {
   userEmail?: string;
@@ -16,26 +21,81 @@ export default function SubscriptionPage({
   className = '',
 }: SubscriptionPageProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<'monthly' | 'annual'>('monthly');
+  const [autoRenew, setAutoRenew] = useState(true);
+  const [couponInput, setCouponInput] = useState('');
+  const [referralInput, setReferralInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
+  const [appliedReferral, setAppliedReferral] = useState<ReferralValidationResult | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [referralError, setReferralError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const selectedPlan = SUBSCRIPTION_PLANS[selectedPlanId];
+
+  // Re-calculate discounts when plan changes
+  const couponDiscountAed = appliedCoupon?.valid
+    ? validateCouponCode(appliedCoupon.code || '', selectedPlan.priceAed).discountAed
+    : 0;
+
+  const referralDiscountAed = appliedReferral?.valid
+    ? validateReferralCode(appliedReferral.code || '', selectedPlan.priceAed).discountAed
+    : 0;
+
+  const totalDiscountAed = couponDiscountAed + referralDiscountAed;
+  const finalPriceAed = Math.max(0, selectedPlan.priceAed - totalDiscountAed);
+
+  const handleApplyCoupon = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setCouponError(null);
+    const res = validateCouponCode(couponInput, selectedPlan.priceAed);
+    if (res.valid) {
+      setAppliedCoupon(res);
+      setCouponError(null);
+    } else {
+      setCouponError(res.errorMessage || 'Invalid coupon code');
+      setAppliedCoupon(null);
+    }
+  };
+
+  const handleApplyReferral = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setReferralError(null);
+    const res = validateReferralCode(referralInput, selectedPlan.priceAed);
+    if (res.valid) {
+      setAppliedReferral(res);
+      setReferralError(null);
+    } else {
+      setReferralError(res.errorMessage || 'Invalid referral code');
+      setAppliedReferral(null);
+    }
+  };
 
   const handleCheckout = async () => {
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
-      const session = await createCheckoutSession(selectedPlanId, userEmail);
+      const session = await createCheckoutSession(selectedPlanId, userEmail, {
+        autoRenew,
+        couponCode: appliedCoupon?.valid ? appliedCoupon.code : undefined,
+        referralCode: appliedReferral?.valid ? appliedReferral.code : undefined,
+      });
 
       if (onPaymentInitiated) {
         onPaymentInitiated(session.sessionId, session.checkoutUrl);
       }
 
+      // If zero AED instant activation
+      if (session.isZeroAed) {
+        return;
+      }
+
       // If in browser environment outside of test runner
       if (
         typeof window !== 'undefined' &&
-        import.meta.env?.MODE !== 'test'
+        import.meta.env?.MODE !== 'test' &&
+        session.checkoutUrl
       ) {
         try {
           window.location.href = session.checkoutUrl;
@@ -105,14 +165,13 @@ export default function SubscriptionPage({
           <div className="mb-4">
             <span className="text-3xl font-extrabold text-slate-900">499</span>
             <span className="text-slate-500 font-medium ml-1">AED / month</span>
-            <p className="text-xs text-slate-500 mt-1">Billed monthly in AED</p>
           </div>
 
           <ul className="space-y-2.5 text-sm text-slate-600 border-t border-slate-100 pt-4">
             {SUBSCRIPTION_PLANS.monthly.features.map((feature, idx) => (
               <li key={idx} className="flex items-center space-x-2">
                 <svg
-                  className="w-4 h-4 text-emerald-600 flex-shrink-0"
+                  className="w-4 h-4 text-emerald-600 shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -134,16 +193,18 @@ export default function SubscriptionPage({
               : 'border-slate-200 hover:border-slate-300 bg-white'
           }`}
         >
-          <span className="absolute -top-3 right-6 bg-amber-500 text-white text-xs font-bold px-3 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
-            {SUBSCRIPTION_PLANS.annual.savingsBadge}
-          </span>
+          {SUBSCRIPTION_PLANS.annual.savingsBadge && (
+            <span className="absolute -top-3 right-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+              {SUBSCRIPTION_PLANS.annual.savingsBadge}
+            </span>
+          )}
 
           <div className="flex justify-between items-start mb-4">
             <div>
               <h3 className="text-lg font-bold text-slate-900">
                 {SUBSCRIPTION_PLANS.annual.name}
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">Annual commitment with top benefits</p>
+              <p className="text-xs text-slate-500 mt-0.5">Top-producing agencies & elite brokers</p>
             </div>
             <input
               type="radio"
@@ -167,7 +228,7 @@ export default function SubscriptionPage({
             {SUBSCRIPTION_PLANS.annual.features.map((feature, idx) => (
               <li key={idx} className="flex items-center space-x-2">
                 <svg
-                  className="w-4 h-4 text-emerald-600 flex-shrink-0"
+                  className="w-4 h-4 text-emerald-600 shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -181,26 +242,133 @@ export default function SubscriptionPage({
         </div>
       </div>
 
+      {/* Autopay, Referral, and Coupon Codes Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-8 shadow-xs space-y-5">
+        <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-amber-500" />
+          <span>Subscription Preferences & Partner Vouchers</span>
+        </h3>
+
+        {/* Autopay Toggle */}
+        <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 cursor-pointer transition-colors">
+          <input
+            type="checkbox"
+            checked={autoRenew}
+            onChange={(e) => setAutoRenew(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+            aria-label="Enable Auto-Renew (Autopay)"
+          />
+          <div className="text-xs">
+            <span className="font-bold text-slate-900 flex items-center gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Enable Auto-Renew (Autopay)</span>
+            </span>
+            <p className="text-slate-500 mt-0.5">
+              Automatically renews your subscription at the end of each billing cycle without interruption. You can cancel anytime.
+            </p>
+          </div>
+        </label>
+
+        {/* Coupon Code Input & Referral Code Input Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+          {/* Coupon Code */}
+          <div className="space-y-1.5">
+            <label htmlFor="coupon-code-input" className="text-xs font-bold text-slate-700 flex items-center gap-1">
+              <Tag className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Coupon Code</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="coupon-code-input"
+                type="text"
+                placeholder="e.g. SPECIAL20 or VIP100"
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value)}
+                className="flex-1 h-9 px-3 text-xs uppercase font-medium bg-slate-50 focus:bg-white text-slate-900 border border-slate-200 focus:border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-hidden transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => handleApplyCoupon()}
+                className="px-3.5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors shadow-2xs"
+              >
+                Apply
+              </button>
+            </div>
+            {couponError && <p className="text-[11px] text-rose-600 font-medium">{couponError}</p>}
+            {appliedCoupon?.valid && (
+              <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
+                <CheckCircle className="w-3 h-3 text-emerald-600" />
+                <span>{appliedCoupon.description} applied (-{couponDiscountAed} AED)</span>
+              </p>
+            )}
+          </div>
+
+          {/* Referral Code */}
+          <div className="space-y-1.5">
+            <label htmlFor="referral-code-input" className="text-xs font-bold text-slate-700 flex items-center gap-1">
+              <Users className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Broker Referral Code</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="referral-code-input"
+                type="text"
+                placeholder="e.g. KARIM-DUBAI"
+                value={referralInput}
+                onChange={(e) => setReferralInput(e.target.value)}
+                className="flex-1 h-9 px-3 text-xs uppercase font-medium bg-slate-50 focus:bg-white text-slate-900 border border-slate-200 focus:border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-hidden transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => handleApplyReferral()}
+                className="px-3.5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors shadow-2xs"
+              >
+                Apply
+              </button>
+            </div>
+            {referralError && <p className="text-[11px] text-rose-600 font-medium">{referralError}</p>}
+            {appliedReferral?.valid && (
+              <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
+                <CheckCircle className="w-3 h-3 text-emerald-600" />
+                <span>10% referral discount applied (-{referralDiscountAed} AED)</span>
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Checkout Box */}
       <div className="bg-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-          <div>
-            <div className="flex items-center space-x-2 mb-1">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
               <span className="text-sm font-semibold text-emerald-400 uppercase tracking-wider">
                 Selected Plan
               </span>
               <span className="text-slate-400">•</span>
               <span className="text-sm text-slate-300">{selectedPlan.name}</span>
             </div>
-            <div className="text-2xl sm:text-3xl font-bold">
-              {selectedPlan.priceAed.toLocaleString()} AED
-              <span className="text-sm font-normal text-slate-400 ml-1">
-                /{selectedPlan.interval === 'month' ? 'month' : 'year'}
-              </span>
+
+            {/* Price breakdown */}
+            <div className="flex items-baseline gap-2">
+              <div className="text-2xl sm:text-3xl font-bold">
+                {finalPriceAed.toLocaleString()} AED
+                <span className="text-sm font-normal text-slate-400 ml-1">
+                  /{selectedPlan.interval === 'month' ? 'month' : 'year'}
+                </span>
+              </div>
+              {totalDiscountAed > 0 && (
+                <div className="text-sm text-slate-400 line-through">
+                  {selectedPlan.priceAed.toLocaleString()} AED
+                </div>
+              )}
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Instant activation • Official UAE tax invoice provided
-            </p>
+
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pt-1">
+              <span>{autoRenew ? '🔄 Auto-Renew enabled' : '⏱️ Single billing cycle'}</span>
+              <span>•</span>
+              <span>Instant activation • UAE tax invoice</span>
+            </div>
           </div>
 
           <div className="flex flex-col items-stretch sm:items-end gap-3">
@@ -230,10 +398,12 @@ export default function SubscriptionPage({
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     />
                   </svg>
-                  <span>Redirecting to UAE Gateway...</span>
+                  <span>Processing...</span>
                 </span>
+              ) : finalPriceAed === 0 ? (
+                'Activate Instant Free Access (VIP)'
               ) : (
-                'Pay with Apple Pay / Card'
+                `Pay with Apple Pay / Card (${finalPriceAed.toLocaleString()} AED)`
               )}
             </button>
 

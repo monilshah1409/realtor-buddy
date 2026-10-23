@@ -37,6 +37,9 @@ describe('SubscriptionPage Component', () => {
     vi.spyOn(paymentService, 'createCheckoutSession').mockResolvedValue({
       sessionId: 'mock_sess_monthly_abc',
       checkoutUrl: 'https://checkout.ziina.com/session/mock_sess_monthly_abc',
+      finalPriceAed: 499,
+      isZeroAed: false,
+      autoRenew: true,
     });
 
     render(
@@ -55,6 +58,25 @@ describe('SubscriptionPage Component', () => {
         'https://checkout.ziina.com/session/mock_sess_monthly_abc'
       );
     });
+  });
+
+  it('allows applying coupon code and toggling auto-renew', async () => {
+    render(<SubscriptionPage userEmail="agent@luxuryproperties.ae" />);
+
+    // Toggle auto-renew
+    const autoRenewCheckbox = screen.getByLabelText(/Enable Auto-Renew \(Autopay\)/i);
+    expect(autoRenewCheckbox).toBeChecked();
+    fireEvent.click(autoRenewCheckbox);
+    expect(autoRenewCheckbox).not.toBeChecked();
+
+    // Apply coupon
+    const couponInput = screen.getByPlaceholderText(/e\.g\. SPECIAL20 or VIP100/i);
+    fireEvent.change(couponInput, { target: { value: 'SPECIAL20' } });
+
+    const applyButtons = screen.getAllByRole('button', { name: /Apply/i });
+    fireEvent.click(applyButtons[0]);
+
+    expect(screen.getByText(/20% Special Partner Discount applied/i)).toBeInTheDocument();
   });
 
   it('displays error message when payment initiation fails', async () => {

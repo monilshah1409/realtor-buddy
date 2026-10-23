@@ -288,9 +288,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       </div>
 
       {/* Row 3: Budget, Stretch Slider, Min Sqft */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pt-2 border-t border-slate-100">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 pt-2 border-t border-slate-100">
         {/* Target Budget AED */}
-        <div className="md:col-span-4 space-y-1.5">
+        <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
           <label htmlFor="filter-budget-input" className="text-xs font-bold text-slate-700 flex items-center justify-between">
             <span className="flex items-center gap-1">
               <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
@@ -317,8 +317,31 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
         </div>
 
+        {/* Min Area (Sqft) */}
+        <div className="sm:col-span-1 lg:col-span-3 space-y-1.5">
+          <label htmlFor="filter-sqft-input" className="text-xs font-bold text-slate-700 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <Maximize className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Min Area (sqft)</span>
+            </span>
+          </label>
+          <div className="relative">
+            <input
+              id="filter-sqft-input"
+              aria-label="Min Area"
+              type="number"
+              min="0"
+              step="50"
+              placeholder="e.g. 800"
+              value={minSqft !== undefined ? minSqft : ''}
+              onChange={(e) => handleMinSqftChange(e.target.value)}
+              className="w-full h-10 px-3 text-sm font-medium bg-slate-50 focus:bg-white text-slate-900 border border-slate-200 focus:border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-hidden transition-all"
+            />
+          </div>
+        </div>
+
         {/* Budget Stretch Range Slider (+0% to +30%) */}
-        <div className="md:col-span-5 space-y-1.5">
+        <div className="sm:col-span-2 lg:col-span-5 space-y-1.5">
           <div className="flex items-center justify-between">
             <label htmlFor="filter-stretch-slider" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -355,29 +378,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <span>20%</span>
               <span>30% Max</span>
             </div>
-          </div>
-        </div>
-
-        {/* Min Area (Sqft) */}
-        <div className="md:col-span-3 space-y-1.5">
-          <label htmlFor="filter-sqft-input" className="text-xs font-bold text-slate-700 flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <Maximize className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Min Area (sqft)</span>
-            </span>
-          </label>
-          <div className="relative">
-            <input
-              id="filter-sqft-input"
-              aria-label="Min Area"
-              type="number"
-              min="0"
-              step="50"
-              placeholder="e.g. 800"
-              value={minSqft !== undefined ? minSqft : ''}
-              onChange={(e) => handleMinSqftChange(e.target.value)}
-              className="w-full h-10 px-3 text-sm font-medium bg-slate-50 focus:bg-white text-slate-900 border border-slate-200 focus:border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-hidden transition-all"
-            />
           </div>
         </div>
       </div>

@@ -73,6 +73,9 @@ describe('PaywallGate', () => {
     const spyCreate = vi.spyOn(paymentService, 'createCheckoutSession').mockResolvedValue({
       sessionId: 'mock_sess_annual_123',
       checkoutUrl: 'https://checkout.ziina.com/session/mock_annual_123',
+      finalPriceAed: 4990,
+      isZeroAed: false,
+      autoRenew: true,
     });
 
     const profile = {
@@ -95,7 +98,7 @@ describe('PaywallGate', () => {
     fireEvent.click(payBtn);
 
     await waitFor(() => {
-      expect(spyCreate).toHaveBeenCalledWith('annual', 'broker@dubai.ae');
+      expect(spyCreate).toHaveBeenCalledWith('annual', 'broker@dubai.ae', expect.anything());
     });
   });
 });

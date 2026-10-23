@@ -136,4 +136,15 @@ describe('Realtor Buddy Main App', () => {
     expect(screen.getAllByText(/Monthly Pro Broker/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByTestId('dubai-map-wrapper')).not.toBeInTheDocument();
   });
+
+  it('renders universal feedback button and opens feedback modal with support email', () => {
+    render(<App />);
+
+    const feedbackBtn = screen.getByTestId('global-feedback-button');
+    expect(feedbackBtn).toBeInTheDocument();
+
+    fireEvent.click(feedbackBtn);
+    expect(screen.getByTestId('feedback-modal-content')).toBeInTheDocument();
+    expect(screen.getAllByText('mswebdevelopments.uae@gmail.com').length).toBeGreaterThan(0);
+  });
 });

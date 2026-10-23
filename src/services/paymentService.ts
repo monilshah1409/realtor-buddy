@@ -55,9 +55,130 @@ export function getSubscriptionPlan(planId: string): SubscriptionPlan | undefine
   return undefined;
 }
 
+export interface Coupon {
+  code: string;
+  discountType: 'percentage' | 'fixed_aed';
+  discountValue: number;
+  description: string;
+}
+
+export const PRESET_COUPONS: Record<string, Coupon> = {
+  SPECIAL20: {
+    code: 'SPECIAL20',
+    discountType: 'percentage',
+    discountValue: 20,
+    description: '20% Special Partner Discount',
+  },
+  VIP100: {
+    code: 'VIP100',
+    discountType: 'fixed_aed',
+    discountValue: 100,
+    description: '100 AED Flat VIP Voucher',
+  },
+  LAUNCH100: {
+    code: 'LAUNCH100',
+    discountType: 'percentage',
+    discountValue: 100,
+    description: '100% Launch Pass (Free Trial Activation)',
+  },
+};
+
+export interface CouponValidationResult {
+  valid: boolean;
+  code?: string;
+  discountAed: number;
+  description?: string;
+  errorMessage?: string;
+}
+
+export function validateCouponCode(
+  rawCode: string,
+  basePriceAed: number
+): CouponValidationResult {
+  const code = rawCode.trim().toUpperCase();
+  if (!code) {
+    return { valid: false, discountAed: 0, errorMessage: 'Please enter a coupon code.' };
+  }
+
+  const coupon = PRESET_COUPONS[code];
+  if (!coupon) {
+    return { valid: false, discountAed: 0, errorMessage: `Coupon "${code}" is invalid or expired.` };
+  }
+
+  let discountAed = 0;
+  if (coupon.discountType === 'percentage') {
+    discountAed = Math.round((basePriceAed * coupon.discountValue) / 100);
+  } else {
+    discountAed = Math.min(coupon.discountValue, basePriceAed);
+  }
+
+  return {
+    valid: true,
+    code: coupon.code,
+    discountAed,
+    description: coupon.description,
+  };
+}
+
+export interface ReferralValidationResult {
+  valid: boolean;
+  code?: string;
+  discountPercent: number;
+  discountAed: number;
+  referrerName?: string;
+  errorMessage?: string;
+}
+
+export function validateReferralCode(
+  rawCode: string,
+  basePriceAed: number
+): ReferralValidationResult {
+  const code = rawCode.trim().toUpperCase();
+  if (!code) {
+    return { valid: false, discountPercent: 0, discountAed: 0, errorMessage: 'Please enter a referral code.' };
+  }
+
+  const isValidPattern =
+    code.startsWith('RB-') ||
+    code.endsWith('-DUBAI') ||
+    code.endsWith('-VIP') ||
+    code === 'KARIM-DUBAI' ||
+    code === 'MONIL-PRO' ||
+    code === 'EDWIN-VIP';
+
+  if (!isValidPattern) {
+    return {
+      valid: false,
+      discountPercent: 0,
+      discountAed: 0,
+      errorMessage: `Referral code "${code}" is invalid. Please verify the code with your referring broker.`,
+    };
+  }
+
+  const discountPercent = 10;
+  const discountAed = Math.round((basePriceAed * discountPercent) / 100);
+
+  return {
+    valid: true,
+    code,
+    discountPercent,
+    discountAed,
+    referrerName: code === 'KARIM-DUBAI' ? 'Karim Al-Sayed' : 'Verified Dubai Broker',
+  };
+}
+
+export interface CheckoutSessionOptions {
+  autoRenew?: boolean;
+  couponCode?: string;
+  referralCode?: string;
+}
+
 export interface CheckoutSessionResult {
   checkoutUrl: string;
   sessionId: string;
+  finalPriceAed: number;
+  isZeroAed: boolean;
+  autoRenew: boolean;
 }
 
 /**
@@ -69,7 +190,8 @@ export interface CheckoutSessionResult {
  */
 export async function createCheckoutSession(
   planId: string,
-  userEmail: string
+  userEmail: string,
+  options: CheckoutSessionOptions = {}
 ): Promise<CheckoutSessionResult> {
   const plan = getSubscriptionPlan(planId);
   if (!plan) {
@@ -78,6 +200,38 @@ export async function createCheckoutSession(
 
   if (!userEmail || !userEmail.trim() || !userEmail.includes('@')) {
     throw new Error('Valid user email is required for checkout.');
+  }
+
+  const { autoRenew = true, couponCode, referralCode } = options;
+
+  let totalDiscountAed = 0;
+
+  if (couponCode) {
+    const couponRes = validateCouponCode(couponCode, plan.priceAed);
+    if (couponRes.valid) {
+      totalDiscountAed += couponRes.discountAed;
+    }
+  }
+
+  if (referralCode) {
+    const refRes = validateReferralCode(referralCode, plan.priceAed);
+    if (refRes.valid) {
+      totalDiscountAed += refRes.discountAed;
+    }
+  }
+
+  const finalPriceAed = Math.max(0, plan.priceAed - totalDiscountAed);
+
+  // If 100% discount is applied (0 AED due), direct instant activation without gateway redirect!
+  if (finalPriceAed === 0) {
+    const zeroSessionId = `zero_promo_${Date.now()}`;
+    return {
+      checkoutUrl: '',
+      sessionId: zeroSessionId,
+      finalPriceAed: 0,
+      isZeroAed: true,
+      autoRenew: false,
+    };
   }
 
   const gatewayKey =
@@ -94,9 +248,9 @@ export async function createCheckoutSession(
           Authorization: `Bearer ${gatewayKey}`,
         },
         body: JSON.stringify({
-          amount: plan.priceAed * 100, // Ziina expects amount in fils
+          amount: finalPriceAed * 100, // Ziina expects amount in fils
           currency_code: 'AED',
-          message: `Realtor Buddy ${plan.name} (${userEmail})`,
+          message: `Realtor Buddy ${plan.name} (${userEmail}) - AutoRenew: ${autoRenew}`,
           success_url: `${window?.location?.origin || 'https://realtorbuddy.ae'}/auth/callback?session_id={PAYMENT_INTENT_ID}`,
           cancel_url: `${window?.location?.origin || 'https://realtorbuddy.ae'}/subscribe?canceled=true`,
         }),
@@ -107,6 +261,9 @@ export async function createCheckoutSession(
         return {
           checkoutUrl: data.redirect_url,
           sessionId: data.id,
+          finalPriceAed,
+          isZeroAed: false,
+          autoRenew,
         };
       }
     } catch {
@@ -118,13 +275,16 @@ export async function createCheckoutSession(
   const sanitizedPlan = plan.id;
   const mockTimestamp = Date.now();
   const sessionId = `mock_sess_${sanitizedPlan}_${mockTimestamp}`;
-  const checkoutUrl = `https://checkout.ziina.com/session/${sessionId}?amount=${plan.priceAed}&currency=AED&apple_pay=true&email=${encodeURIComponent(
+  const checkoutUrl = `https://checkout.ziina.com/session/${sessionId}?amount=${finalPriceAed}&currency=AED&apple_pay=true&email=${encodeURIComponent(
     userEmail
-  )}&plan=${sanitizedPlan}`;
+  )}&plan=${sanitizedPlan}&autorenew=${autoRenew}`;
 
   return {
     checkoutUrl,
     sessionId,
+    finalPriceAed,
+    isZeroAed: false,
+    autoRenew,
   };
 }
 

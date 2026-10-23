@@ -14,6 +14,7 @@ export interface PropertyListProps {
   onResetFilters?: () => void;
   isLoading?: boolean;
   className?: string;
+  gridClassName?: string;
 }
 
 export const PropertyList: React.FC<PropertyListProps> = ({
@@ -27,6 +28,7 @@ export const PropertyList: React.FC<PropertyListProps> = ({
   onResetFilters,
   isLoading = false,
   className = '',
+  gridClassName = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-5',
 }) => {
   const count = properties.length;
   const shortlistedSet = new Set(shortlistedIds);
@@ -35,7 +37,7 @@ export const PropertyList: React.FC<PropertyListProps> = ({
     return (
       <div className={`space-y-4 ${className}`} data-testid="property-list-loading">
         <div className="h-6 w-48 bg-slate-200 animate-pulse rounded" />
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className={`grid ${gridClassName}`}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs animate-pulse">
               <div className="aspect-[16/10] bg-slate-200" />
@@ -101,7 +103,7 @@ export const PropertyList: React.FC<PropertyListProps> = ({
       ) : (
         /* Property Cards Grid */
         <div
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
+          className={`grid ${gridClassName}`}
           data-testid="property-grid"
         >
           {properties.map((property) => (
