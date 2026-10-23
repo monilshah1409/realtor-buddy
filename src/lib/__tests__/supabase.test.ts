@@ -59,3 +59,57 @@ describe('Supabase Database Migration Schema', () => {
     expect(migrationSql).toMatch(/properties_public_select/i);
   });
 });
+
+describe('Supabase Security Hardening & Isolation', () => {
+  it('strictly revokes price_aed and developer_name from anon on public.properties', () => {
+    expect(migrationSql).toMatch(/revoke\s+select\s*\(\s*price_aed\s*,\s*developer_name\s*\)\s*on\s+public\.properties\s+from\s+anon/i);
+  });
+
+  it('strictly revokes gateway_customer_id and subscription_status from anon on public.profiles', () => {
+    expect(migrationSql).toMatch(/revoke\s+select\s*\(\s*gateway_customer_id\s*,\s*subscription_status\s*\)\s*on\s+public\.profiles\s+from\s+anon/i);
+  });
+
+  it('defines public_agent_profiles view omitting sensitive billing columns', () => {
+    expect(migrationSql).toMatch(/create\s+(or\s+replace\s+)?view\s+public\.public_agent_profiles/i);
+    const viewMatch = migrationSql.match(/create\s+(?:or\s+replace\s+)?view\s+public\.public_agent_profiles[\s\S]*?from\s+public\.profiles/i);
+    expect(viewMatch).not.toBeNull();
+    if (viewMatch) {
+      const viewQuery = viewMatch[0];
+      expect(viewQuery).not.toMatch(/gateway_customer_id/i);
+      expect(viewQuery).not.toMatch(/subscription_status/i);
+    }
+  });
+
+  it('restricts public share policies strictly TO anon to prevent cross-agent visibility leaks', () => {
+    // properties_public_select must be TO anon only
+    const propPolicyMatch = migrationSql.match(/create\s+policy\s+"properties_public_select"\s+on\s+public\.properties\s+for\s+select\s+to\s+([^\s\n]+)/i);
+    expect(propPolicyMatch).not.toBeNull();
+    expect(propPolicyMatch?.[1].toLowerCase().trim()).toBe('anon');
+
+    // shortlists_public_select must be TO anon only
+    const shortlistPolicyMatch = migrationSql.match(/create\s+policy\s+"shortlists_public_select"\s+on\s+public\.shortlists\s+for\s+select\s+to\s+([^\s\n]+)/i);
+    expect(shortlistPolicyMatch).not.toBeNull();
+    expect(shortlistPolicyMatch?.[1].toLowerCase().trim()).toBe('anon');
+
+    // shortlist_items_public_select must be TO anon only
+    const itemsPolicyMatch = migrationSql.match(/create\s+policy\s+"shortlist_items_public_select"\s+on\s+public\.shortlist_items\s+for\s+select\s+to\s+([^\s\n]+)/i);
+    expect(itemsPolicyMatch).not.toBeNull();
+    expect(itemsPolicyMatch?.[1].toLowerCase().trim()).toBe('anon');
+  });
+
+  it('hardcodes agent role in handle_new_user to prevent privilege escalation', () => {
+    // Verify handle_new_user uses 'agent' directly and does not read role from raw_user_meta_data
+    expect(migrationSql).toMatch(/'agent'::public\.user_role/i);
+    expect(migrationSql).not.toMatch(/raw_user_meta_data->>'role'/i);
+  });
+
+  it('sets explicit search_path on security definer functions', () => {
+    // is_admin() must set search_path = public
+    const isAdminMatch = migrationSql.match(/function\s+public\.is_admin[\s\S]*?set\s+search_path\s*=\s*public/i);
+    expect(isAdminMatch).not.toBeNull();
+
+    // handle_new_user() must set search_path = public
+    const handleUserMatch = migrationSql.match(/function\s+public\.handle_new_user[\s\S]*?set\s+search_path\s*=\s*public/i);
+    expect(handleUserMatch).not.toBeNull();
+  });
+});

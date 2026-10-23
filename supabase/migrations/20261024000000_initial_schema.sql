@@ -134,7 +134,7 @@ CREATE INDEX IF NOT EXISTS idx_shortlists_agent_id ON public.shortlists(agent_id
 CREATE INDEX IF NOT EXISTS idx_shortlists_share_token ON public.shortlists(share_token);
 CREATE INDEX IF NOT EXISTS idx_shortlist_items_shortlist_id ON public.shortlist_items(shortlist_id);
 
--- 7. Helper Security Functions
+-- 7. Helper Security Functions (Explicit search_path = public to prevent search-path hijacking)
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -143,10 +143,11 @@ BEGIN
     WHERE id = auth.uid() AND role = 'admin'
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
--- 8. Public Properties View (Explicitly Omitting price_aed and developer_name)
--- Public buyer view strips price_aed and developer_name to guarantee zero wholesale leakage.
+-- 8. Public Views (Guaranteed redaction of sensitive business fields)
+
+-- 8.1 Public Properties View: Explicitly omits price_aed and developer_name
 CREATE OR REPLACE VIEW public.public_properties AS
 SELECT
   id,
@@ -172,6 +173,21 @@ SELECT
   created_at,
   updated_at
 FROM public.properties;
+
+-- 8.2 Public Agent Profiles View: Explicitly omits gateway_customer_id, role, and subscription_status
+CREATE OR REPLACE VIEW public.public_agent_profiles AS
+SELECT
+  id,
+  full_name,
+  agency_name,
+  phone_number,
+  whatsapp_number,
+  avatar_url
+FROM public.profiles;
+
+-- Grant SELECT on sanitized views to both anon and authenticated users
+GRANT SELECT ON public.public_properties TO anon, authenticated;
+GRANT SELECT ON public.public_agent_profiles TO anon, authenticated;
 
 -- 9. Row-Level Security (RLS) Configuration
 
@@ -236,11 +252,12 @@ CREATE POLICY "properties_agent_update"
   USING (created_by = auth.uid() OR public.is_admin())
   WITH CHECK (created_by = auth.uid() OR public.is_admin());
 
--- Public unauthenticated or authenticated users can read properties by share_token
+-- Public unauthenticated users can read properties by share_token
+-- Note: Strictly TO anon to prevent PostgreSQL OR-combining with agent policies
 CREATE POLICY "properties_public_select"
   ON public.properties
   FOR SELECT
-  TO anon, authenticated
+  TO anon
   USING (share_token IS NOT NULL);
 
 -- 9.3 Shortlists Policies
@@ -258,10 +275,11 @@ CREATE POLICY "shortlists_agent_all"
   USING (agent_id = auth.uid() OR public.is_admin())
   WITH CHECK (agent_id = auth.uid() OR public.is_admin());
 
+-- Note: Strictly TO anon to preserve agent-to-agent shortlist privacy
 CREATE POLICY "shortlists_public_select"
   ON public.shortlists
   FOR SELECT
-  TO anon, authenticated
+  TO anon
   USING (share_token IS NOT NULL);
 
 -- 9.4 Shortlist Items Policies
@@ -291,10 +309,11 @@ CREATE POLICY "shortlist_items_agent_all"
     )
   );
 
+-- Note: Strictly TO anon to preserve agent-to-agent shortlist items privacy
 CREATE POLICY "shortlist_items_public_select"
   ON public.shortlist_items
   FOR SELECT
-  TO anon, authenticated
+  TO anon
   USING (
     EXISTS (
       SELECT 1 FROM public.shortlists
@@ -303,11 +322,12 @@ CREATE POLICY "shortlist_items_public_select"
     )
   );
 
--- 10. Column Access Permissions on Public Properties View
--- Explicitly grant SELECT on public_properties view to anon and authenticated
-GRANT SELECT ON public.public_properties TO anon, authenticated;
+-- 10. Strict Column Access Revocations for Anon Role
+-- Explicitly revoke sensitive columns from anon on base tables so direct API queries cannot leak data
+REVOKE SELECT (price_aed, developer_name) ON public.properties FROM anon;
+REVOKE SELECT (gateway_customer_id, subscription_status) ON public.profiles FROM anon;
 
--- 11. Profile Auto-Creation Trigger
+-- 11. Profile Auto-Creation Trigger (Hardcoded role='agent' to prevent client privilege escalation)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -317,14 +337,14 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'full_name', ''),
     COALESCE(new.raw_user_meta_data->>'agency_name', ''),
     COALESCE(new.raw_user_meta_data->>'whatsapp_number', ''),
-    COALESCE((new.raw_user_meta_data->>'role')::public.user_role, 'agent'),
+    'agent'::public.user_role,
     'pending_approval',
     'trial'
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN new;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
