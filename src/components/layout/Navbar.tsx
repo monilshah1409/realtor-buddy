@@ -64,6 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [logoAvailable, setLogoAvailable] = useState<boolean | null>(null);
 
   const isAdmin = userProfile.role === 'admin';
 
@@ -108,22 +109,38 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               onClick={() => onNavigate('/')}
               className="flex items-center gap-2.5 focus:outline-hidden group text-left"
+              aria-label="Realtor Buddy Home"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-600/30 group-hover:scale-105 transition-transform">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xl font-black bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent tracking-tight">
-                    Realtor Buddy
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200/80">
-                    Dubai
+              {logoAvailable !== false && (
+                <img
+                  src="/logo.png"
+                  alt="Realtor Buddy"
+                  onLoad={() => setLogoAvailable(true)}
+                  onError={() => setLogoAvailable(false)}
+                  className={`h-9 sm:h-10 w-auto max-w-[200px] object-contain group-hover:scale-105 transition-transform ${
+                    logoAvailable === true ? 'block' : 'hidden'
+                  }`}
+                />
+              )}
+
+              {/* Default Brand Mark & Typography (Active when full logo image is not loaded or during fallback) */}
+              <div className={`flex items-center gap-2.5 ${logoAvailable === true ? 'hidden' : 'flex'}`}>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-600/30 group-hover:scale-105 transition-transform shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xl font-black bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent tracking-tight">
+                      Realtor Buddy
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200/80">
+                      Dubai
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-400 tracking-wide uppercase">
+                    Verified Broker Network
                   </span>
                 </div>
-                <span className="text-[10px] font-semibold text-slate-400 tracking-wide uppercase">
-                  Verified Broker Network
-                </span>
               </div>
             </button>
 
