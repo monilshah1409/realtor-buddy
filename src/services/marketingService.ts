@@ -91,12 +91,75 @@ const DEFAULT_PROMOS: PromoCoupon[] = [
   },
 ];
 
-// In-memory fallback stores
-let memoryCampaigns: MarketingCampaign[] = JSON.parse(JSON.stringify(DEFAULT_CAMPAIGNS));
-let memoryPromos: PromoCoupon[] = JSON.parse(JSON.stringify(DEFAULT_PROMOS));
-let memoryProfiles: Profile[] = [];
-let memoryEmailLogs: EmailLog[] = [];
-let memoryTransactions: PaymentTransaction[] = [
+export const DEFAULT_BROKER_PROFILES: Profile[] = [
+  {
+    id: 'broker_1',
+    full_name: 'Tariq Al-Mansoor',
+    agency_name: 'Apex Luxury Real Estate',
+    email: 'tariq@apexrealty.ae',
+    phone_number: '+971 50 112 3344',
+    whatsapp_number: '+971 50 112 3344',
+    role: 'agent',
+    status: 'active',
+    subscription_status: 'active',
+    trial_expires_at: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'broker_2',
+    full_name: 'Elena Rostova',
+    agency_name: 'Skyline Capital Dubai',
+    email: 'elena@skylinecapital.ae',
+    phone_number: '+971 52 987 6543',
+    whatsapp_number: '+971 52 987 6543',
+    role: 'agent',
+    status: 'active',
+    subscription_status: 'trial',
+    trial_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'broker_3',
+    full_name: 'Zayed Al-Nahyan',
+    agency_name: 'Palm & Marina Realty',
+    email: 'zayed@palmmarina.ae',
+    phone_number: '+971 55 443 2211',
+    whatsapp_number: '+971 55 443 2211',
+    role: 'agent',
+    status: 'active',
+    subscription_status: 'trial',
+    trial_expires_at: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'broker_4',
+    full_name: 'Sarah Jenkins',
+    agency_name: 'Downtown Prime Brokers',
+    email: 'sarah@downtownprime.ae',
+    phone_number: '+971 50 776 5544',
+    whatsapp_number: '+971 50 776 5544',
+    role: 'agent',
+    status: 'active',
+    subscription_status: 'trial',
+    trial_expires_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'broker_5',
+    full_name: 'Fahad Bin Khalid',
+    agency_name: 'Emirates Gold Assets',
+    email: 'fahad@emiratesgold.ae',
+    phone_number: '+971 54 332 1100',
+    whatsapp_number: '+971 54 332 1100',
+    role: 'agent',
+    status: 'active',
+    subscription_status: 'inactive',
+    trial_expires_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+export const DEFAULT_TRANSACTIONS: PaymentTransaction[] = [
   {
     id: 'tx_seed_1',
     user_id: 'user_1',
@@ -128,7 +191,24 @@ let memoryTransactions: PaymentTransaction[] = [
     status: 'completed',
     created_at: new Date(Date.now() - 18 * 24 * 60 * 60 * 1000).toISOString(),
   },
+  {
+    id: 'tx_seed_4',
+    user_id: 'user_4',
+    user_email: 'broker4@downtownprime.ae',
+    amount_aed: 149,
+    plan_id: 'monthly',
+    payment_gateway: 'ziina',
+    status: 'completed',
+    created_at: new Date(Date.now() - 22 * 24 * 60 * 60 * 1000).toISOString(),
+  },
 ];
+
+// In-memory fallback stores
+let memoryCampaigns: MarketingCampaign[] = JSON.parse(JSON.stringify(DEFAULT_CAMPAIGNS));
+let memoryPromos: PromoCoupon[] = JSON.parse(JSON.stringify(DEFAULT_PROMOS));
+let memoryProfiles: Profile[] = JSON.parse(JSON.stringify(DEFAULT_BROKER_PROFILES));
+let memoryEmailLogs: EmailLog[] = [];
+let memoryTransactions: PaymentTransaction[] = JSON.parse(JSON.stringify(DEFAULT_TRANSACTIONS));
 
 /**
  * Resets the in-memory fallback store back to initial seed data.
@@ -137,8 +217,9 @@ let memoryTransactions: PaymentTransaction[] = [
 export function resetMarketingStore(): void {
   memoryCampaigns = JSON.parse(JSON.stringify(DEFAULT_CAMPAIGNS));
   memoryPromos = JSON.parse(JSON.stringify(DEFAULT_PROMOS));
-  memoryProfiles = [];
+  memoryProfiles = JSON.parse(JSON.stringify(DEFAULT_BROKER_PROFILES));
   memoryEmailLogs = [];
+  memoryTransactions = JSON.parse(JSON.stringify(DEFAULT_TRANSACTIONS));
 }
 
 /**
@@ -524,4 +605,118 @@ export async function fetchRevenueMetrics(): Promise<{
     activeCount,
     trialCount,
   };
+}
+
+/**
+ * 9. fetchBrokerProfiles
+ * Fetches all broker profiles from Supabase or returns in-memory seeds.
+ */
+export async function fetchBrokerProfiles(): Promise<Profile[]> {
+  if (isLiveSupabase()) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data as Profile[];
+      }
+    } catch (err) {
+      console.warn('fetchBrokerProfiles Supabase fallback:', err);
+    }
+  }
+
+  return [...memoryProfiles];
+}
+
+/**
+ * 10. fetchPaymentTransactions
+ * Fetches recent payment transactions from Supabase or returns in-memory seeds.
+ */
+export async function fetchPaymentTransactions(): Promise<PaymentTransaction[]> {
+  if (isLiveSupabase()) {
+    try {
+      const { data, error } = await supabase
+        .from('payment_transactions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data as PaymentTransaction[];
+      }
+    } catch (err) {
+      console.warn('fetchPaymentTransactions Supabase fallback:', err);
+    }
+  }
+
+  return [...memoryTransactions];
+}
+
+/**
+ * 11. grantBrokerVip
+ * Upgrades broker to active VIP membership.
+ */
+export async function grantBrokerVip(
+  profileId: string,
+  existingProfile?: Profile
+): Promise<Profile> {
+  let targetProfile: Profile | undefined = existingProfile;
+
+  if (!targetProfile) {
+    targetProfile = memoryProfiles.find((p) => p.id === profileId);
+  }
+
+  if (!targetProfile && isLiveSupabase()) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', profileId)
+        .single();
+
+      if (!error && data) {
+        targetProfile = data as Profile;
+      }
+    } catch (err) {
+      console.warn('grantBrokerVip Supabase query fallback:', err);
+    }
+  }
+
+  const updatedProfile: Profile = {
+    ...(targetProfile || {
+      id: profileId,
+      full_name: 'Broker Agent',
+      agency_name: 'Dubai Brokerage',
+      whatsapp_number: '+971500000000',
+      role: 'agent',
+      status: 'active',
+      created_at: new Date().toISOString(),
+    }),
+    subscription_status: 'active',
+    status: 'active',
+  };
+
+  if (isLiveSupabase()) {
+    try {
+      await supabase
+        .from('profiles')
+        .update({
+          subscription_status: 'active',
+          status: 'active',
+        })
+        .eq('id', profileId);
+    } catch (err) {
+      console.warn('grantBrokerVip Supabase update fallback:', err);
+    }
+  }
+
+  const existingIdx = memoryProfiles.findIndex((p) => p.id === profileId);
+  if (existingIdx >= 0) {
+    memoryProfiles[existingIdx] = updatedProfile;
+  } else {
+    memoryProfiles.push(updatedProfile);
+  }
+
+  return updatedProfile;
 }
