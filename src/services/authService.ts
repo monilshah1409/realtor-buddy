@@ -26,9 +26,11 @@ export const PRESET_PROFILES: Record<string, Profile> = {
     phone_number: '+971501234567',
     whatsapp_number: '+971501234567',
     avatar_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80',
+    email: 'karim@dubairealty.ae',
     role: 'agent',
     status: 'active',
     subscription_status: 'active',
+    trial_expires_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
     created_at: '2026-01-01T00:00:00.000Z',
   },
   admin: {
@@ -38,6 +40,7 @@ export const PRESET_PROFILES: Record<string, Profile> = {
     phone_number: '+971500000001',
     whatsapp_number: '+971500000001',
     avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+    email: 'admin@realtorbuddy.ae',
     role: 'admin',
     status: 'active',
     subscription_status: 'active',
@@ -50,6 +53,7 @@ export const PRESET_PROFILES: Record<string, Profile> = {
     phone_number: '+971509876543',
     whatsapp_number: '+971509876543',
     avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80',
+    email: 'rashid@emaarsignature.ae',
     role: 'agent',
     status: 'pending_approval',
     subscription_status: 'active',
@@ -93,9 +97,11 @@ export async function signInBroker(email: string, password?: string): Promise<Au
               phone_number: profileRow.phone_number,
               whatsapp_number: profileRow.whatsapp_number || '+971501234567',
               avatar_url: profileRow.avatar_url,
+              email: profileRow.email || cleanEmail,
               role: profileRow.role as UserRole,
               status: profileRow.status as ProfileStatus,
               subscription_status: profileRow.subscription_status as SubscriptionStatus,
+              trial_expires_at: profileRow.trial_expires_at,
               created_at: profileRow.created_at,
             },
           };
@@ -108,11 +114,11 @@ export async function signInBroker(email: string, password?: string): Promise<Au
 
   // Demo / matching lookup by email or role
   if (cleanEmail.includes('admin') || cleanEmail.includes('monil') || cleanEmail.includes('edwin')) {
-    return { success: true, profile: PRESET_PROFILES.admin };
+    return { success: true, profile: { ...PRESET_PROFILES.admin, email: cleanEmail || PRESET_PROFILES.admin.email } };
   }
 
   if (cleanEmail.includes('pending') || cleanEmail.includes('rashid')) {
-    return { success: true, profile: PRESET_PROFILES.pending_agent };
+    return { success: true, profile: { ...PRESET_PROFILES.pending_agent, email: cleanEmail || PRESET_PROFILES.pending_agent.email } };
   }
 
   // Default agent profile
@@ -120,16 +126,20 @@ export async function signInBroker(email: string, password?: string): Promise<Au
     success: true,
     profile: {
       ...PRESET_PROFILES.agent,
+      email: cleanEmail || PRESET_PROFILES.agent.email,
       full_name: cleanEmail.includes('@') ? cleanEmail.split('@')[0].replace('.', ' ') : 'Verified Broker',
     },
   };
 }
+
+export const loginWithEmail = signInBroker;
 
 /**
  * Register a new broker profile in Supabase
  */
 export async function registerBroker(payload: RegisterBrokerPayload): Promise<AuthResponse> {
   const cleanEmail = payload.email.trim().toLowerCase();
+  const trialExpiresAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
 
   if (isLiveSupabase() && payload.password) {
     try {
@@ -150,9 +160,11 @@ export async function registerBroker(payload: RegisterBrokerPayload): Promise<Au
         phone_number: payload.phoneNumber || '+971501234567',
         whatsapp_number: payload.whatsappNumber,
         avatar_url: payload.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+        email: cleanEmail,
         role: payload.role || 'agent',
         status: 'pending_approval',
         subscription_status: 'trial',
+        trial_expires_at: trialExpiresAt,
         created_at: new Date().toISOString(),
       };
 
@@ -164,9 +176,11 @@ export async function registerBroker(payload: RegisterBrokerPayload): Promise<Au
         phone_number: newProfile.phone_number,
         whatsapp_number: newProfile.whatsapp_number,
         avatar_url: newProfile.avatar_url,
+        email: newProfile.email,
         role: newProfile.role,
         status: newProfile.status,
         subscription_status: newProfile.subscription_status,
+        trial_expires_at: newProfile.trial_expires_at,
       });
 
       return { success: true, profile: newProfile };
@@ -183,9 +197,11 @@ export async function registerBroker(payload: RegisterBrokerPayload): Promise<Au
     phone_number: payload.phoneNumber || '+971501234567',
     whatsapp_number: payload.whatsappNumber,
     avatar_url: payload.avatarUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80',
+    email: cleanEmail,
     role: payload.role || 'agent',
     status: 'pending_approval',
     subscription_status: 'trial',
+    trial_expires_at: trialExpiresAt,
     created_at: new Date().toISOString(),
   };
 

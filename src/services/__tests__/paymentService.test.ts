@@ -6,6 +6,7 @@ import {
   verifySessionStatus,
   validateCouponCode,
   validateReferralCode,
+  isTrialExpired,
 } from '../paymentService';
 
 describe('paymentService', () => {
@@ -14,7 +15,8 @@ describe('paymentService', () => {
     expect(SUBSCRIPTION_PLANS.monthly).toBeDefined();
     expect(SUBSCRIPTION_PLANS.annual).toBeDefined();
 
-    expect(SUBSCRIPTION_PLANS.monthly.priceAed).toBe(499);
+    expect(SUBSCRIPTION_PLANS.monthly.priceAed).toBe(149);
+    expect(SUBSCRIPTION_PLANS.monthly.billingPeriodText).toContain('149 AED');
     expect(SUBSCRIPTION_PLANS.monthly.interval).toBe('month');
 
     expect(SUBSCRIPTION_PLANS.annual.priceAed).toBe(4990);
@@ -25,7 +27,7 @@ describe('paymentService', () => {
   it('retrieves subscription plan by planId correctly', () => {
     const monthlyPlan = getSubscriptionPlan('monthly');
     expect(monthlyPlan?.id).toBe('monthly');
-    expect(monthlyPlan?.priceAed).toBe(499);
+    expect(monthlyPlan?.priceAed).toBe(149);
 
     const annualPlan = getSubscriptionPlan('annual');
     expect(annualPlan?.id).toBe('annual');
@@ -95,9 +97,9 @@ describe('paymentService', () => {
       });
 
       expect(session.autoRenew).toBe(false);
-      expect(session.finalPriceAed).toBe(399);
+      expect(session.finalPriceAed).toBe(119);
       expect(session.checkoutUrl).toContain('autorenew=false');
-      expect(session.checkoutUrl).toContain('amount=399');
+      expect(session.checkoutUrl).toContain('amount=119');
     });
 
     it('activates directly with 0 AED when 100% discount coupon is applied', async () => {
@@ -150,6 +152,32 @@ describe('paymentService', () => {
     it('returns inactive when sessionId indicates inactive', async () => {
       const status = await verifySessionStatus('mock_sess_inactive_12345');
       expect(status).toBe('inactive');
+    });
+  });
+
+  describe('isTrialExpired', () => {
+    it('returns false when profile is null or undefined', () => {
+      expect(isTrialExpired(null)).toBe(false);
+      expect(isTrialExpired(undefined)).toBe(false);
+    });
+
+    it('returns false for active subscription regardless of trial_expires_at', () => {
+      const pastDate = new Date(Date.now() - 100000).toISOString();
+      expect(isTrialExpired({ subscription_status: 'active', trial_expires_at: pastDate })).toBe(false);
+    });
+
+    it('returns false when profile has no trial_expires_at date set', () => {
+      expect(isTrialExpired({ subscription_status: 'trial' })).toBe(false);
+    });
+
+    it('returns false when trial has not expired (future date)', () => {
+      const futureDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+      expect(isTrialExpired({ subscription_status: 'trial', trial_expires_at: futureDate })).toBe(false);
+    });
+
+    it('returns true when trial has expired (past date)', () => {
+      const pastDate = new Date(Date.now() - 1000).toISOString();
+      expect(isTrialExpired({ subscription_status: 'trial', trial_expires_at: pastDate })).toBe(true);
     });
   });
 });

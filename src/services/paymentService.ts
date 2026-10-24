@@ -1,4 +1,4 @@
-import { SubscriptionStatus } from '../types';
+import { SubscriptionStatus, Profile } from '../types';
 
 export interface SubscriptionPlan {
   id: 'monthly' | 'annual';
@@ -16,9 +16,9 @@ export const SUBSCRIPTION_PLANS: Record<'monthly' | 'annual', SubscriptionPlan> 
   monthly: {
     id: 'monthly',
     name: 'Monthly Pro Broker',
-    priceAed: 499,
+    priceAed: 149,
     interval: 'month',
-    billingPeriodText: '499 AED / month',
+    billingPeriodText: '149 AED / month',
     description: 'Full access to confidential wholesale inventory and direct developer contracts',
     features: [
       'Confidential wholesale pricing & developer inventory',
@@ -53,6 +53,18 @@ export function getSubscriptionPlan(planId: string): SubscriptionPlan | undefine
     return SUBSCRIPTION_PLANS[planId];
   }
   return undefined;
+}
+
+/**
+ * Evaluates whether a broker profile's free trial period has expired.
+ * Active subscribers are never considered expired.
+ * Profiles without trial_expires_at or undefined/null are not considered expired.
+ */
+export function isTrialExpired(profile: Partial<Profile> | null | undefined): boolean {
+  if (!profile) return false;
+  if (profile.subscription_status === 'active') return false;
+  if (!profile.trial_expires_at) return false;
+  return new Date(profile.trial_expires_at).getTime() < Date.now();
 }
 
 export interface Coupon {
