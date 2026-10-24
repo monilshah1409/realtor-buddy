@@ -263,8 +263,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </span>
             </div>
 
-            <div className="h-[480px] sm:h-[540px] lg:h-[640px] w-full rounded-2xl overflow-hidden border border-stone-300 shadow-md bg-slate-950">
+            <div className="h-[480px] sm:h-[540px] lg:h-[640px] w-full rounded-2xl overflow-hidden border border-stone-300 shadow-md bg-stone-900">
               <DubaiMap
+                key={`dubai-map-${mobileTab}`}
                 properties={scoredProperties}
                 selectedPropertyId={selectedPropertyId}
                 onSelectProperty={handleSelectProperty}

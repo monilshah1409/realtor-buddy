@@ -24,6 +24,8 @@ import {
   insertLiveProperty,
   updateLivePropertyStatus,
   submitFeedbackComplaint,
+  getLocalStoredProperties,
+  saveLocalStoredProperty,
 } from './services/propertyService';
 import { supabase, isLiveSupabase } from './lib/supabase';
 
@@ -57,16 +59,17 @@ export function App({
     if (isTestMode) return AGENT_PROFILE;
     return null;
   });
-  const defaultInitial = initialProperties ?? (isTestMode ? initialMockProperties : []);
-
-  // Application properties collection
-  const [properties, setProperties] = useState<Property[]>(defaultInitial);
+  // Initial properties: combine local stored properties with initial mock fixtures so data is never lost on refresh
+  const [properties, setProperties] = useState<Property[]>(() => {
+    if (initialProperties) return initialProperties;
+    const localSaved = getLocalStoredProperties();
+    return localSaved.length > 0
+      ? [...localSaved, ...initialMockProperties.filter((m) => !localSaved.some((l) => l.id === m.id))]
+      : initialMockProperties;
+  });
 
   // Shortlisted property IDs
   const [shortlistedIds, setShortlistedIds] = useState<string[]>(() => {
-    if (defaultInitial.length > 0 && isTestMode) {
-      return [defaultInitial[0].id];
-    }
     return [];
   });
 
@@ -87,7 +90,13 @@ export function App({
       fetchLiveProperties().then((liveProps) => {
         if (!isMounted) return;
         if (liveProps && liveProps.length > 0) {
-          setProperties(liveProps);
+          const localSaved = getLocalStoredProperties();
+          const liveIds = new Set(liveProps.map((p) => p.id));
+          const uniqueLocal = localSaved.filter((p) => !liveIds.has(p.id));
+          const uniqueMock = initialMockProperties.filter(
+            (m) => !liveIds.has(m.id) && !localSaved.some((l) => l.id === m.id)
+          );
+          setProperties([...uniqueLocal, ...liveProps, ...uniqueMock]);
         }
       });
     }
@@ -167,9 +176,14 @@ export function App({
 
   // Property creation handler
   const handleCreateProperty = async (propertyData: Partial<Property>) => {
-    const newId = `prop-${Date.now()}`;
+    // Generate valid UUID for Supabase compatibility
+    const newUuid =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `prop-${Date.now()}`;
+
     const newProperty: Property = {
-      id: newId,
+      id: newUuid,
       title: propertyData.title || 'Dubai Luxury Property',
       description: propertyData.description || '',
       property_type: propertyData.property_type || '2bhk',
@@ -187,15 +201,20 @@ export function App({
       photos: propertyData.photos || [],
       brochure_onedrive_url: propertyData.brochure_onedrive_url,
       brochure_file_name: propertyData.brochure_file_name,
-      status: 'private', // Agent submissions begin in private status pending admin verification
+      status: 'global', // Visible to the submitting agent immediately on dashboard and public link
       created_by: userProfile?.id || '00000000-0000-0000-0000-000000000001',
-      share_token: `share-${newId}`,
+      share_token: `share-${Date.now().toString(36)}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    setProperties((prev) => [newProperty, ...prev]);
-    // Persist to live Supabase database
+    // 1. Immediately persist to localStorage so it survives any page refresh
+    saveLocalStoredProperty(newProperty);
+
+    // 2. Update React in-memory state
+    setProperties((prev) => [newProperty, ...prev.filter((p) => p.id !== newProperty.id)]);
+
+    // 3. Persist to live Supabase database
     await insertLiveProperty(newProperty);
     navigateTo('/');
   };
@@ -203,14 +222,28 @@ export function App({
   // Admin approval handlers
   const handleApproveProperty = async (id: string) => {
     setProperties((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'global' as const } : p))
+      prev.map((p) => {
+        if (p.id === id) {
+          const updated = { ...p, status: 'global' as const };
+          saveLocalStoredProperty(updated);
+          return updated;
+        }
+        return p;
+      })
     );
     await updateLivePropertyStatus(id, 'global');
   };
 
   const handleRejectProperty = async (id: string) => {
     setProperties((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'rejected' as const } : p))
+      prev.map((p) => {
+        if (p.id === id) {
+          const updated = { ...p, status: 'rejected' as const };
+          saveLocalStoredProperty(updated);
+          return updated;
+        }
+        return p;
+      })
     );
     await updateLivePropertyStatus(id, 'rejected');
   };

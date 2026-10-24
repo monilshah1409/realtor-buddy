@@ -12,12 +12,66 @@ export interface FeedbackComplaintPayload {
   pageUrl?: string;
 }
 
+export const LOCAL_PROPERTIES_STORAGE_KEY = 'realtor_buddy_custom_properties';
+
 /**
- * Loads properties from live Supabase database if connected, or returns fallback.
+ * Retrieves custom properties created by the broker stored in localStorage.
+ */
+export function getLocalStoredProperties(): Property[] {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(LOCAL_PROPERTIES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn('Failed to parse local stored properties:', err);
+    return [];
+  }
+}
+
+/**
+ * Saves a property to localStorage so it is preserved immediately across page refreshes.
+ */
+export function saveLocalStoredProperty(property: Property): void {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+  try {
+    const existing = getLocalStoredProperties();
+    const updated = [property, ...existing.filter((p) => p.id !== property.id)];
+    window.localStorage.setItem(LOCAL_PROPERTIES_STORAGE_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.warn('Failed to save property to localStorage:', err);
+  }
+}
+
+/**
+ * Removes a locally stored property from localStorage.
+ */
+export function removeLocalStoredProperty(id: string): void {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+  try {
+    const existing = getLocalStoredProperties();
+    const updated = existing.filter((p) => p.id !== id);
+    window.localStorage.setItem(LOCAL_PROPERTIES_STORAGE_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.warn('Failed to remove property from localStorage:', err);
+  }
+}
+
+/**
+ * Loads properties from live Supabase database if connected, merged with local stored properties, or returns fallback.
  */
 export async function fetchLiveProperties(): Promise<Property[]> {
+  const localProps = getLocalStoredProperties();
+
   if (!isLiveSupabase()) {
-    return [];
+    return localProps;
   }
 
   try {
@@ -28,10 +82,10 @@ export async function fetchLiveProperties(): Promise<Property[]> {
 
     if (error) {
       console.warn('Failed to fetch properties from Supabase:', error.message);
-      return [];
+      return localProps;
     }
 
-    return (data || []).map((row) => ({
+    const liveMapped: Property[] = (data || []).map((row) => ({
       id: row.id,
       title: row.title,
       description: row.description || '',
@@ -56,23 +110,44 @@ export async function fetchLiveProperties(): Promise<Property[]> {
       created_at: row.created_at,
       updated_at: row.updated_at,
     }));
+
+    // Merge Supabase properties with any locally added properties so fresh broker additions are never lost
+    const liveIds = new Set(liveMapped.map((p) => p.id));
+    const uniqueLocal = localProps.filter((p) => !liveIds.has(p.id));
+
+    return [...uniqueLocal, ...liveMapped];
   } catch (err) {
     console.warn('Supabase properties network exception:', err);
-    return [];
+    return localProps;
   }
 }
 
 /**
- * Inserts a newly submitted property into Supabase.
+ * Inserts a newly submitted property into Supabase with automatic local storage fallback.
  */
 export async function insertLiveProperty(property: Property): Promise<boolean> {
+  // Always persist to localStorage first so it immediately survives page refreshes
+  saveLocalStoredProperty(property);
+
   if (!isLiveSupabase()) {
-    return true; // Local state handled in-memory
+    return true;
   }
 
   try {
-    const { error } = await supabase.from('properties').insert({
-      id: property.id,
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(property.id);
+
+    // Get current auth session user ID if available
+    let createdBy = property.created_by;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session?.user?.id) {
+        createdBy = sessionData.session.user.id;
+      }
+    } catch {
+      // ignore
+    }
+
+    const payload: any = {
       title: property.title,
       description: property.description,
       property_type: property.property_type,
@@ -90,18 +165,26 @@ export async function insertLiveProperty(property: Property): Promise<boolean> {
       photos: property.photos,
       brochure_onedrive_url: property.brochure_onedrive_url,
       brochure_file_name: property.brochure_file_name,
-      status: property.status,
-      created_by: property.created_by,
+      status: property.status || 'global',
       share_token: property.share_token,
-    });
+    };
+
+    if (isUuid) {
+      payload.id = property.id;
+    }
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(createdBy)) {
+      payload.created_by = createdBy;
+    }
+
+    const { error } = await supabase.from('properties').insert(payload);
 
     if (error) {
-      console.error('Error inserting property to Supabase:', error.message);
+      console.warn('Supabase property insert notice (persisted in local storage):', error.message);
       return false;
     }
     return true;
   } catch (err) {
-    console.error('Exception inserting property to Supabase:', err);
+    console.warn('Exception inserting property to Supabase (persisted in local storage):', err);
     return false;
   }
 }

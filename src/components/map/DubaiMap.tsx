@@ -44,6 +44,71 @@ const MapCenterController: React.FC<{
   return null;
 };
 
+/**
+ * Controller to ensure Leaflet invalidates and recalculates its dimensions whenever the
+ * container mounts, resizes, or transitions from hidden to visible (e.g. mobile/tablet tab switching).
+ */
+const MapResizeController: React.FC = () => {
+  const map = useMap();
+
+  useEffect(() => {
+    // Initial size invalidation
+    map.invalidateSize();
+
+    // Staggered invalidations for layout transitions and tab switching
+    const t1 = setTimeout(() => {
+      try {
+        map.invalidateSize();
+      } catch {
+        // Safe in test environments
+      }
+    }, 100);
+
+    const t2 = setTimeout(() => {
+      try {
+        map.invalidateSize();
+      } catch {
+        // Safe in test environments
+      }
+    }, 350);
+
+    // Watch container DOM node with ResizeObserver
+    let observer: ResizeObserver | null = null;
+    const container = map.getContainer();
+    if (container && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => {
+        try {
+          map.invalidateSize();
+        } catch {
+          // ignore
+        }
+      });
+      observer.observe(container);
+    }
+
+    const onResize = () => {
+      try {
+        map.invalidateSize();
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      if (observer) observer.disconnect();
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, [map]);
+
+  return null;
+};
+
 export const DubaiMap: React.FC<DubaiMapProps> = ({
   properties = [],
   selectedPropertyId,
@@ -73,7 +138,7 @@ export const DubaiMap: React.FC<DubaiMapProps> = ({
 
   return (
     <div
-      className={`relative w-full h-full min-h-[440px] rounded-2xl overflow-hidden shadow-lg border border-slate-200/80 bg-slate-950 ${className}`}
+      className={`relative w-full h-full min-h-[440px] rounded-2xl overflow-hidden shadow-lg border border-slate-200/80 bg-stone-900 ${className}`}
       data-testid="dubai-map-wrapper"
     >
       <MapContainer
@@ -82,6 +147,9 @@ export const DubaiMap: React.FC<DubaiMapProps> = ({
         scrollWheelZoom={true}
         className="w-full h-full min-h-[440px] z-0"
       >
+        <MapResizeController />
+        <MapCenterController selectedProperty={selectedProperty} />
+
         {/* Real-Satellite Imagery (Esri World Imagery) with High-Res Dubai Coastal/Landmark Detail */}
         {mapMode === 'satellite' ? (
           <>
@@ -89,12 +157,16 @@ export const DubaiMap: React.FC<DubaiMapProps> = ({
               attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               maxZoom={19}
+              maxNativeZoom={18}
+              keepBuffer={4}
             />
             {/* Hybrid Reference Layer for Dubai Places, Roads, and Neighborhoods */}
             <TileLayer
               attribution=""
               url="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
               maxZoom={19}
+              maxNativeZoom={18}
+              keepBuffer={4}
               opacity={0.9}
             />
           </>
@@ -103,10 +175,9 @@ export const DubaiMap: React.FC<DubaiMapProps> = ({
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             maxZoom={19}
+            keepBuffer={4}
           />
         )}
-
-        <MapCenterController selectedProperty={selectedProperty} />
 
         {validProperties.map(property => (
           <MapMarker
