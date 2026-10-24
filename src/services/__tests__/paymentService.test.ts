@@ -38,41 +38,45 @@ describe('paymentService', () => {
   });
 
   describe('Coupon & Referral Validation', () => {
-    it('validates percentage coupon SPECIAL20 and calculates 20% discount', () => {
-      const res = validateCouponCode('SPECIAL20', 499);
+    it('validates percentage coupon SPECIAL20 and calculates 20% discount on 149 AED plan', () => {
+      const res = validateCouponCode('SPECIAL20', 149);
       expect(res.valid).toBe(true);
-      expect(res.discountAed).toBe(100); // 20% of 499 rounded
+      expect(res.discountAed).toBe(30); // 20% of 149 rounded (29.8 -> 30)
+      expect(149 - res.discountAed).toBe(119);
     });
 
-    it('validates flat AED coupon VIP100', () => {
-      const res = validateCouponCode('vip100', 499);
+    it('validates flat AED coupon VIP100 on 149 AED plan', () => {
+      const res = validateCouponCode('vip100', 149);
       expect(res.valid).toBe(true);
       expect(res.discountAed).toBe(100);
+      expect(149 - res.discountAed).toBe(49);
     });
 
-    it('validates 100% launch pass LAUNCH100', () => {
-      const res = validateCouponCode('LAUNCH100', 499);
+    it('validates 100% launch pass LAUNCH100 on 149 AED plan', () => {
+      const res = validateCouponCode('LAUNCH100', 149);
       expect(res.valid).toBe(true);
-      expect(res.discountAed).toBe(499);
+      expect(res.discountAed).toBe(149);
+      expect(149 - res.discountAed).toBe(0);
     });
 
     it('rejects invalid coupon codes with helpful message', () => {
-      const res = validateCouponCode('INVALID_CODE', 499);
+      const res = validateCouponCode('INVALID_CODE', 149);
       expect(res.valid).toBe(false);
       expect(res.discountAed).toBe(0);
       expect(res.errorMessage).toMatch(/invalid or expired/i);
     });
 
-    it('validates broker referral codes and calculates 10% referee discount', () => {
-      const res = validateReferralCode('KARIM-DUBAI', 499);
+    it('validates broker referral codes and calculates 10% referee discount on 149 AED plan', () => {
+      const res = validateReferralCode('KARIM-DUBAI', 149);
       expect(res.valid).toBe(true);
       expect(res.discountPercent).toBe(10);
-      expect(res.discountAed).toBe(50); // 10% of 499 rounded
+      expect(res.discountAed).toBe(15); // 10% of 149 rounded (14.9 -> 15)
+      expect(149 - res.discountAed).toBe(134);
       expect(res.referrerName).toBe('Karim Al-Sayed');
     });
 
     it('rejects unrecognized referral codes', () => {
-      const res = validateReferralCode('FAKE-CODE', 499);
+      const res = validateReferralCode('FAKE-CODE', 149);
       expect(res.valid).toBe(false);
       expect(res.errorMessage).toMatch(/invalid/i);
     });

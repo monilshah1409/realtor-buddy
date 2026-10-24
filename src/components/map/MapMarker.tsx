@@ -137,12 +137,14 @@ export interface MapMarkerProps {
   property: Property & { score?: MatchScoreResult };
   isSelected?: boolean;
   onSelect?: (id: string) => void;
+  onViewDetails?: (id: string) => void;
 }
 
 export const MapMarker: React.FC<MapMarkerProps> = ({
   property,
   isSelected = false,
   onSelect,
+  onViewDetails,
 }) => {
   const markerRef = useRef<L.Marker>(null);
   const tier = getMarkerTier(property.score);
@@ -248,7 +250,7 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
 
             <button
               type="button"
-              onClick={() => onSelect?.(property.id)}
+              onClick={() => (onViewDetails ? onViewDetails(property.id) : onSelect?.(property.id))}
               className="w-full mt-2 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded shadow transition-colors flex items-center justify-center gap-1.5"
               data-testid="popup-select-btn"
             >

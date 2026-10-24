@@ -1,5 +1,6 @@
 import { supabase, isLiveSupabase } from '../lib/supabase';
 import type { Property, PropertyStatus } from '../types';
+import { sendEmailViaTemplate } from './marketingService';
 
 export const SUPPORT_EMAIL = 'mswebdevelopments.uae@gmail.com';
 
@@ -192,13 +193,64 @@ export async function insertLiveProperty(property: Property): Promise<boolean> {
   }
 }
 
+export interface PropertyReviewNotificationParams {
+  propertyTitle: string;
+  brokerEmail: string;
+  status: 'approved' | 'changes_requested' | PropertyStatus;
+  feedback?: string;
+}
+
+/**
+ * Triggers a property_review_status luxury notification email to the submitting broker.
+ */
+export async function notifyPropertyReviewStatus(
+  params: PropertyReviewNotificationParams
+): Promise<{ success: boolean; dispatchedCount: number }> {
+  const reviewStatus: 'approved' | 'changes_requested' =
+    params.status === 'global' || params.status === 'approved'
+      ? 'approved'
+      : 'changes_requested';
+
+  return await sendEmailViaTemplate({
+    to: [params.brokerEmail],
+    template: 'property_review_status',
+    subject: `Listing Status Update: ${params.propertyTitle} (${
+      reviewStatus === 'approved' ? 'Approved' : 'Changes Requested'
+    })`,
+    data: {
+      property_title: params.propertyTitle,
+      status: reviewStatus,
+      feedback: params.feedback || '',
+    },
+  });
+}
+
+export interface UpdateLivePropertyStatusOptions {
+  feedback?: string;
+  brokerEmail?: string;
+  propertyTitle?: string;
+}
+
 /**
  * Updates a property status (approval / rejection) in Supabase.
+ * Triggers property_review_status email when brokerEmail option is passed.
  */
 export async function updateLivePropertyStatus(
   id: string,
-  status: PropertyStatus
+  status: PropertyStatus,
+  options?: UpdateLivePropertyStatusOptions
 ): Promise<boolean> {
+  // If broker email or options provided, trigger property_review_status email
+  if (options?.brokerEmail) {
+    const title = options.propertyTitle || 'Off-Plan Property Listing';
+    notifyPropertyReviewStatus({
+      propertyTitle: title,
+      brokerEmail: options.brokerEmail,
+      status,
+      feedback: options.feedback,
+    }).catch((err) => console.warn('Failed to send review status notification:', err));
+  }
+
   if (!isLiveSupabase()) {
     return true;
   }

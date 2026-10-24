@@ -75,8 +75,21 @@ export interface Profile {
   role: UserRole;
   status: ProfileStatus;
   subscription_status: SubscriptionStatus;
+  email_verified?: boolean;
   trial_expires_at?: string;
   gateway_customer_id?: string;
+  created_at: string;
+}
+
+export interface BrokerOtp {
+  id: string;
+  email: string;
+  otp_code: string;
+  purpose: 'verification' | 'password_reset' | 'login';
+  attempts: number;
+  max_attempts: number;
+  expires_at: string;
+  consumed_at: string | null;
   created_at: string;
 }
 

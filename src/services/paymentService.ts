@@ -1,4 +1,5 @@
 import { SubscriptionStatus, Profile } from '../types';
+import { sendEmailViaTemplate } from './marketingService';
 
 export interface SubscriptionPlan {
   id: 'monthly' | 'annual';
@@ -379,4 +380,82 @@ export async function verifySessionStatus(sessionId: string): Promise<Subscripti
   }
 
   return 'active';
+}
+
+export interface VerifyPaymentTransactionOptions {
+  sessionId: string;
+  userEmail?: string;
+  brokerName?: string;
+  amountAed?: number;
+  invoiceId?: string;
+}
+
+export interface VerifyPaymentTransactionResult {
+  status: 'paid' | 'pending' | 'failed' | 'canceled';
+  subscriptionStatus: SubscriptionStatus;
+  invoiceId?: string;
+  receiptSent: boolean;
+}
+
+/**
+ * Verifies payment transaction status and triggers a transactional payment_receipt email
+ * when the transaction status resolves to 'paid' (active subscription).
+ */
+export async function verifyPaymentTransaction(
+  sessionIdOrOptions: string | VerifyPaymentTransactionOptions,
+  maybeEmail?: string,
+  maybeBrokerName?: string
+): Promise<VerifyPaymentTransactionResult> {
+  const options: VerifyPaymentTransactionOptions =
+    typeof sessionIdOrOptions === 'string'
+      ? {
+          sessionId: sessionIdOrOptions,
+          userEmail: maybeEmail,
+          brokerName: maybeBrokerName,
+        }
+      : sessionIdOrOptions;
+
+  const subscriptionStatus = await verifySessionStatus(options.sessionId);
+  let status: 'paid' | 'pending' | 'failed' | 'canceled' = 'pending';
+
+  if (subscriptionStatus === 'active') {
+    status = 'paid';
+  } else if (subscriptionStatus === 'past_due') {
+    status = 'failed';
+  } else if (subscriptionStatus === 'canceled') {
+    status = 'canceled';
+  } else {
+    status = 'pending';
+  }
+
+  let receiptSent = false;
+  const invoiceId =
+    options.invoiceId ||
+    `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  if (status === 'paid' && options.userEmail) {
+    try {
+      await sendEmailViaTemplate({
+        to: [options.userEmail],
+        template: 'payment_receipt',
+        subject: 'VIP Membership Confirmation & Receipt',
+        data: {
+          invoice_id: invoiceId,
+          amount_aed: options.amountAed || 149,
+          broker_name: options.brokerName || options.userEmail.split('@')[0],
+          payment_method: 'Ziina',
+        },
+      });
+      receiptSent = true;
+    } catch (err) {
+      console.warn('Failed to dispatch payment receipt email:', err);
+    }
+  }
+
+  return {
+    status,
+    subscriptionStatus,
+    invoiceId,
+    receiptSent,
+  };
 }

@@ -3,6 +3,7 @@ import {
   handleEmailDispatcherRequest,
   generateLuxuryEmailHtml,
   corsHeaders,
+  setCustomSupabaseAdmin,
 } from '../../../supabase/functions/email-dispatcher/index';
 
 describe('email-dispatcher Supabase Edge Function', () => {
@@ -15,6 +16,7 @@ describe('email-dispatcher Supabase Edge Function', () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     delete (globalThis as any).Deno;
+    setCustomSupabaseAdmin(null);
   });
 
   describe('CORS & Method Validation', () => {
@@ -138,6 +140,46 @@ describe('email-dispatcher Supabase Edge Function', () => {
       expect(json.provider).toBe('logger');
       expect(json.audience).toBe('trial');
       expect(json.dispatchedCount).toBeGreaterThan(0);
+    });
+
+    it('queries both expired status and expired trials when audience is expired [M3]', async () => {
+      let orClause = '';
+      setCustomSupabaseAdmin({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnThis(),
+          not: vi.fn().mockReturnThis(),
+          or: vi.fn().mockImplementation((clause: string) => {
+            orClause = clause;
+            return Promise.resolve({
+              data: [
+                { email: 'expired.paid@apex.ae' },
+                { email: 'expired.trial@apex.ae' },
+              ],
+              error: null,
+            });
+          }),
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        }),
+      });
+
+      const req = new Request('http://localhost/functions/v1/email-dispatcher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audience: 'expired',
+          subject: 'Exclusive Winback',
+          template: 'trial_expired_winback',
+        }),
+      });
+
+      const res = await handleEmailDispatcherRequest(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.dispatchedCount).toBe(2);
+      expect(orClause).toContain('subscription_status.eq.expired');
+      expect(orClause).toContain('subscription_status.eq.trial');
+      expect(orClause).toContain('trial_expires_at.lte');
     });
   });
 

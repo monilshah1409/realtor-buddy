@@ -21,7 +21,7 @@ describe('Navbar Component', () => {
     expect(screen.getByText('Verified Broker Network')).toBeInTheDocument();
   });
 
-  it('renders Agent role badge and subscription active status', () => {
+  it('renders Agent role badge and VIP Pro Member status', () => {
     render(
       <Navbar
         currentPath="/"
@@ -31,9 +31,58 @@ describe('Navbar Component', () => {
       />
     );
 
-    expect(screen.getByText(/Subscription Active/i)).toBeInTheDocument();
+    expect(screen.getByText(/VIP Pro Member/i)).toBeInTheDocument();
     expect(screen.getByTestId('profile-role-badge')).toHaveTextContent(/Agent/i);
     expect(screen.getByText('Karim Al-Sayed')).toBeInTheDocument();
+  });
+
+  it('renders active trial gold pill with remaining days linking to /subscription', () => {
+    const handleNavigate = vi.fn();
+    const trialProfile = {
+      ...AGENT_PROFILE,
+      subscription_status: 'trial' as const,
+      trial_expires_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    render(
+      <Navbar
+        currentPath="/"
+        onNavigate={handleNavigate}
+        userProfile={trialProfile}
+        onProfileChange={vi.fn()}
+      />
+    );
+
+    const trialPill = screen.getByRole('button', { name: /5-Day Free Trial/i });
+    expect(trialPill).toBeInTheDocument();
+    expect(trialPill).toHaveTextContent(/4 days left/i);
+
+    fireEvent.click(trialPill);
+    expect(handleNavigate).toHaveBeenCalledWith('/subscription');
+  });
+
+  it('renders expired trial amber badge linking to /subscription', () => {
+    const handleNavigate = vi.fn();
+    const expiredProfile = {
+      ...AGENT_PROFILE,
+      subscription_status: 'trial' as const,
+      trial_expires_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    render(
+      <Navbar
+        currentPath="/"
+        onNavigate={handleNavigate}
+        userProfile={expiredProfile}
+        onProfileChange={vi.fn()}
+      />
+    );
+
+    const expiredBadge = screen.getByRole('button', { name: /Trial Expired • Upgrade to Pro/i });
+    expect(expiredBadge).toBeInTheDocument();
+
+    fireEvent.click(expiredBadge);
+    expect(handleNavigate).toHaveBeenCalledWith('/subscription');
   });
 
   it('renders Admin Approvals link with pending count when profile is admin', () => {

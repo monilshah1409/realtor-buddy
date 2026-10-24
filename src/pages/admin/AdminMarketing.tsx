@@ -17,13 +17,27 @@ import {
   Building,
   Flame,
   Zap,
+  Smartphone,
+  Monitor,
+  ShieldCheck,
+  KeyRound,
+  Receipt,
+  FileCheck,
+  Megaphone,
+  Layers,
 } from 'lucide-react';
 import type { MarketingCampaign } from '../../types';
 import {
   fetchMarketingCampaigns,
   toggleMarketingCampaign,
   sendBroadcastEmail,
+  sendEmailViaTemplate,
 } from '../../services/marketingService';
+import {
+  EMAIL_TEMPLATES_CATALOG,
+  renderLuxuryTemplateHtml,
+  EmailTemplateDefinition,
+} from '../../services/emailTemplates';
 
 export interface AdminMarketingProps {
   initialCampaigns?: MarketingCampaign[];
@@ -33,12 +47,19 @@ export interface AdminMarketingProps {
     subject: string;
     htmlContent: string;
   }) => Promise<{ success: boolean; dispatchedCount: number }>;
+  onSendTestEmail?: (payload: {
+    to: string[];
+    template: string;
+    subject: string;
+    data?: Record<string, any>;
+  }) => Promise<{ success: boolean; dispatchedCount: number }>;
 }
 
 export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   initialCampaigns,
   onToggleCampaign,
   onSendBroadcast,
+  onSendTestEmail,
 }) => {
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>(initialCampaigns || []);
   const [loading, setLoading] = useState<boolean>(!initialCampaigns);
@@ -47,8 +68,14 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     message: string;
   } | null>(null);
 
-  // Template Preview Modal
+  // Active Template Preview Modal State
   const [selectedTemplate, setSelectedTemplate] = useState<MarketingCampaign | null>(null);
+  const [selectedLibraryTemplate, setSelectedLibraryTemplate] =
+    useState<EmailTemplateDefinition | null>(null);
+  const [viewportMode, setViewportMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [testEmail, setTestEmail] = useState<string>('admin@realtorbuddy.ae');
+  const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
+  const [activeCategory, setActiveCategory] = useState<string>('all');
 
   // Broadcast Composer State
   const [audience, setAudience] = useState<string>('all');
@@ -161,7 +188,6 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     const newText = subject.substring(0, start) + variableName + subject.substring(end);
     setSubject(newText);
 
-    // Restore focus and cursor position after insertion
     setTimeout(() => {
       input.focus();
       const nextPos = start + variableName.length;
@@ -227,7 +253,6 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
           type: 'success',
           message: `Broadcast sent to ${result.dispatchedCount} brokers via Resend email dispatcher.`,
         });
-        // Clear draft inputs after successful send
         setSubject('');
         setBody('');
       } else {
@@ -241,6 +266,63 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       });
     } finally {
       setIsSending(false);
+    }
+  };
+
+  // Dispatch Test Email
+  const handleSendTestEmail = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    const targetRecipient = testEmail.trim() || 'admin@realtorbuddy.ae';
+    setIsSendingTest(true);
+
+    try {
+      const templateId = selectedLibraryTemplate
+        ? selectedLibraryTemplate.id
+        : selectedTemplate?.trigger_type || selectedTemplate?.id || 'admin_broadcast';
+
+      const emailSubject = selectedLibraryTemplate
+        ? selectedLibraryTemplate.subject
+        : selectedTemplate?.subject || 'Test Email Dispatch';
+
+      const dataPayload = selectedLibraryTemplate
+        ? selectedLibraryTemplate.sampleData
+        : {};
+
+      let result: { success: boolean; dispatchedCount: number };
+
+      if (onSendTestEmail) {
+        result = await onSendTestEmail({
+          to: [targetRecipient],
+          template: templateId,
+          subject: emailSubject,
+          data: dataPayload,
+        });
+      } else {
+        result = await sendEmailViaTemplate({
+          to: [targetRecipient],
+          template: templateId,
+          subject: emailSubject,
+          data: dataPayload,
+        });
+      }
+
+      if (result.success) {
+        setFeedback({
+          type: 'success',
+          message: `Test email successfully dispatched to ${targetRecipient} via SMTP engine.`,
+        });
+      } else {
+        throw new Error('Failed to dispatch test email');
+      }
+    } catch (err: any) {
+      console.error('Test email dispatch error:', err);
+      setFeedback({
+        type: 'error',
+        message: err.message || `Failed to dispatch test email to ${targetRecipient}.`,
+      });
+    } finally {
+      setIsSendingTest(false);
     }
   };
 
@@ -291,6 +373,31 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     };
   };
 
+  // Filter templates by category
+  const filteredTemplates = useMemo(() => {
+    if (activeCategory === 'all') return EMAIL_TEMPLATES_CATALOG;
+    return EMAIL_TEMPLATES_CATALOG.filter((t) => t.category.toLowerCase() === activeCategory.toLowerCase());
+  }, [activeCategory]);
+
+  const getTemplateIcon = (category: string) => {
+    switch (category) {
+      case 'Security':
+        return KeyRound;
+      case 'Onboarding':
+        return Sparkles;
+      case 'Lifecycle':
+        return Clock;
+      case 'Billing':
+        return Receipt;
+      case 'Operations':
+        return FileCheck;
+      case 'Broadcast':
+        return Megaphone;
+      default:
+        return Mail;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FAF8F5] flex flex-col font-sans text-slate-800">
       {/* Top Banner / Luxury Dubai Header */}
@@ -301,15 +408,15 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
               <Mail className="w-5 h-5 text-[#D4AF37]" />
             </div>
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-xl font-serif font-bold tracking-tight text-white">
                   Marketing & Broadcast Concierge
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30">
-                  Resend Dispatcher Active
+                  SMTP Engine: Nodemailer Direct Transport (Stylofista Architecture - Limit Bypassed)
                 </span>
               </div>
-              <p className="text-xs text-stone-400 font-medium">
+              <p className="text-xs text-stone-400 font-medium mt-0.5">
                 Monil & Edwin Platform Gatekeeper • Automated Drips & VIP Communications
               </p>
             </div>
@@ -318,14 +425,14 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 text-stone-300 text-xs font-medium border border-stone-800">
               <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>{campaigns.length} Automated Triggers Configured</span>
+              <span>{EMAIL_TEMPLATES_CATALOG.length} Luxury Templates Ready</span>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
         {/* Toast Feedback Banner */}
         {feedback && (
           <div
@@ -392,7 +499,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   className="bg-white rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden relative"
                 >
                   {/* Card Header Gradient Strip */}
-                  <div className={`px-5 pt-5 pb-3 border-b border-stone-100 bg-gradient-to-br ${meta.color}`}>
+                  <div
+                    className={`px-5 pt-5 pb-3 border-b border-stone-100 bg-gradient-to-br ${meta.color}`}
+                  >
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#090D15] text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs">
                         <MetaIcon className="w-3 h-3 text-[#D4AF37]" />
@@ -471,7 +580,10 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => setSelectedTemplate(campaign)}
+                      onClick={() => {
+                        setSelectedTemplate(campaign);
+                        setSelectedLibraryTemplate(null);
+                      }}
                       aria-label={`Preview Template for ${campaign.title}`}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-800 hover:text-slate-950 bg-white hover:bg-stone-100 border border-stone-200 shadow-2xs transition-colors cursor-pointer"
                     >
@@ -485,7 +597,118 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
           </div>
         </section>
 
-        {/* SECTION 2: Manual Broadcast Email Composer & Live Luxury Preview */}
+        {/* SECTION 2: 8-Template Showcase & Live Luxury Previewer */}
+        <section aria-labelledby="templates-heading" className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#D4AF37]" />
+                <h2 id="templates-heading" className="text-lg font-serif font-bold text-slate-900">
+                  Email Template Library & Previewer
+                </h2>
+              </div>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Complete 8-template luxury Dubai email architecture delivered via Nodemailer direct SMTP transport.
+              </p>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs">
+              {['all', 'Security', 'Onboarding', 'Lifecycle', 'Billing', 'Operations', 'Broadcast'].map(
+                (cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setActiveCategory(cat)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer capitalize ${
+                      activeCategory.toLowerCase() === cat.toLowerCase()
+                        ? 'bg-[#090D15] text-[#D4AF37] border border-[#D4AF37]/40 shadow-xs'
+                        : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          {/* 8 Templates Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {filteredTemplates.map((template) => {
+              const IconComp = getTemplateIcon(template.category);
+
+              return (
+                <div
+                  key={template.id}
+                  className="bg-white rounded-2xl border border-stone-200/90 hover:border-[#D4AF37]/50 shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+                >
+                  <div className="p-5 space-y-3 flex-1 flex flex-col">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-900 text-[#D4AF37] border border-[#D4AF37]/30">
+                        <IconComp className="w-3 h-3 text-[#D4AF37]" />
+                        <span>{template.category}</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-stone-400">
+                        {template.id}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-[#090D15] transition-colors">
+                        {template.name}
+                      </h3>
+                      <p className="text-[11px] text-stone-500 mt-1 line-clamp-2 leading-relaxed">
+                        {template.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-auto pt-3 border-t border-stone-100 space-y-1.5 text-[11px]">
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-stone-400 block tracking-wider">
+                          Trigger Event
+                        </span>
+                        <span className="text-slate-700 font-medium line-clamp-1">
+                          {template.triggerEvent}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-stone-400 block tracking-wider">
+                          Subject Line
+                        </span>
+                        <span className="text-slate-800 font-medium italic line-clamp-1">
+                          "{template.subject}"
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-5 py-3.5 bg-stone-50 border-t border-stone-100 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold text-emerald-700 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                      <span>SMTP Ready</span>
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLibraryTemplate(template);
+                        setSelectedTemplate(null);
+                      }}
+                      aria-label={`Preview ${template.name}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-900 hover:text-black bg-white hover:bg-stone-100 border border-stone-200/90 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span>Preview Template</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* SECTION 3: Manual Broadcast Email Composer & Live Luxury Preview */}
         <section aria-labelledby="composer-heading" className="space-y-4">
           <div className="border-b border-stone-200 pb-3">
             <div className="flex items-center gap-2">
@@ -636,7 +859,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                     className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono text-slate-900 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent transition-all leading-relaxed"
                   />
                   <p className="text-[11px] text-stone-500 mt-1">
-                    Standard HTML tags supported. Interpolations: <code className="text-[#090D15] font-semibold">&#123;&#123;broker_name&#125;&#125;</code>, <code className="text-[#090D15] font-semibold">&#123;&#123;checkout_url&#125;&#125;</code>.
+                    Standard HTML tags supported. Interpolations:{' '}
+                    <code className="text-[#090D15] font-semibold">&#123;&#123;broker_name&#125;&#125;</code>,{' '}
+                    <code className="text-[#090D15] font-semibold">&#123;&#123;checkout_url&#125;&#125;</code>.
                   </p>
                 </div>
 
@@ -789,32 +1014,40 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
         </section>
       </main>
 
-      {/* TEMPLATE PREVIEW MODAL */}
-      {selectedTemplate && (
+      {/* UNIFIED LUXURY TEMPLATE PREVIEW MODAL */}
+      {(selectedLibraryTemplate || selectedTemplate) && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200"
         >
-          <div className="bg-[#FAF8F5] w-full max-w-2xl rounded-2xl shadow-2xl border border-[#D4AF37]/40 overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-[#FAF8F5] w-full max-w-4xl rounded-2xl shadow-2xl border border-[#D4AF37]/40 overflow-hidden flex flex-col max-h-[92vh]">
             {/* Modal Header */}
             <div className="bg-[#090D15] px-6 py-4 border-b border-[#D4AF37]/25 flex items-center justify-between text-white">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 bg-slate-900 text-[#D4AF37] rounded-lg border border-[#D4AF37]/30">
-                  <Mail className="w-4 h-4 text-[#D4AF37]" />
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-900 text-[#D4AF37] rounded-xl border border-[#D4AF37]/30">
+                  <Mail className="w-5 h-5 text-[#D4AF37]" />
                 </div>
                 <div>
                   <h3 className="text-sm font-serif font-bold text-white">
-                    Template Preview: {selectedTemplate.title}
+                    Template Preview:{' '}
+                    {selectedLibraryTemplate
+                      ? selectedLibraryTemplate.name
+                      : selectedTemplate?.title}
                   </h3>
                   <p className="text-[11px] text-stone-400">
-                    Automated trigger email delivered to {selectedTemplate.audience} cohort
+                    {selectedLibraryTemplate
+                      ? `${selectedLibraryTemplate.category} Template • ${selectedLibraryTemplate.triggerEvent}`
+                      : `Automated trigger email delivered to ${selectedTemplate?.audience} cohort`}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedTemplate(null)}
+                onClick={() => {
+                  setSelectedLibraryTemplate(null);
+                  setSelectedTemplate(null);
+                }}
                 aria-label="Close modal"
                 className="text-stone-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
               >
@@ -822,54 +1055,164 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-4">
+            {/* Controls Bar: Viewport Switcher & Live Test Dispatcher */}
+            <div className="bg-slate-900 border-b border-stone-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4 text-xs">
+              {/* Desktop / Mobile Viewport Toggle */}
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-stone-800">
+                <button
+                  type="button"
+                  onClick={() => setViewportMode('desktop')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                    viewportMode === 'desktop'
+                      ? 'bg-[#D4AF37] text-slate-950 shadow-xs'
+                      : 'text-stone-400 hover:text-white'
+                  }`}
+                >
+                  <Monitor className="w-3.5 h-3.5" />
+                  <span>Desktop</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewportMode('mobile')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                    viewportMode === 'mobile'
+                      ? 'bg-[#D4AF37] text-slate-950 shadow-xs'
+                      : 'text-stone-400 hover:text-white'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Mobile</span>
+                </button>
+              </div>
+
+              {/* Live Test Dispatcher */}
+              <form
+                onSubmit={handleSendTestEmail}
+                className="flex items-center gap-2 flex-1 max-w-md justify-end"
+              >
+                <div className="relative flex-1">
+                  <input
+                    type="email"
+                    required
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    placeholder="admin@realtorbuddy.ae"
+                    aria-label="Recipient Email"
+                    className="w-full pl-3 pr-3 py-1.5 bg-slate-950 border border-stone-700 focus:border-[#D4AF37] rounded-xl text-xs text-stone-200 placeholder:text-stone-500 focus:outline-hidden"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSendingTest}
+                  className="px-3.5 py-1.5 bg-gradient-to-r from-[#D4AF37] to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isSendingTest ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3 h-3 text-slate-950" />
+                      <span>Send Test Email</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Modal Body / Scrollable Content */}
+            <div className="p-6 overflow-y-auto space-y-4 bg-stone-100 flex-1">
               <div className="bg-white p-4 rounded-xl border border-stone-200 space-y-2">
                 <div className="text-xs">
                   <span className="text-[10px] font-bold uppercase text-stone-400 block mb-0.5">
                     Subject Line
                   </span>
-                  <p className="font-semibold text-slate-900">{selectedTemplate.subject}</p>
+                  <p className="font-semibold text-slate-900">
+                    {selectedLibraryTemplate
+                      ? selectedLibraryTemplate.subject
+                      : selectedTemplate?.subject}
+                  </p>
                 </div>
-                <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
-                  <span>Trigger: <strong className="text-slate-800">{selectedTemplate.trigger_type}</strong></span>
-                  <span>Target Audience: <strong className="text-slate-800 capitalize">{selectedTemplate.audience}</strong></span>
+                <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500 flex-wrap gap-2">
+                  <span>
+                    Template ID:{' '}
+                    <strong className="text-slate-800 font-mono">
+                      {selectedLibraryTemplate
+                        ? selectedLibraryTemplate.id
+                        : selectedTemplate?.id}
+                    </strong>
+                  </span>
+                  <span>
+                    Delivery Engine:{' '}
+                    <strong className="text-[#D4AF37] bg-slate-900 px-2 py-0.5 rounded-md font-mono text-[10px]">
+                      Nodemailer Direct SMTP
+                    </strong>
+                  </span>
                 </div>
               </div>
 
-              {/* Rendered Email Frame */}
-              <div className="bg-[#090D15] rounded-xl p-1 border border-[#D4AF37]/30">
-                <div className="bg-white p-6 rounded-lg space-y-4">
-                  <div className="text-center pb-3 border-b border-[#D4AF37]/30">
-                    <span className="font-serif font-bold text-xs tracking-widest text-[#090D15]">
-                      REALTOR BUDDY CONCIERGE
-                    </span>
-                    <p className="text-[9px] uppercase tracking-wider text-stone-400">
-                      Dubai Automated Lifecycle Notice
-                    </p>
-                  </div>
-
+              {/* Rendered Email Frame with Viewport Constraint */}
+              <div
+                data-testid="email-preview-viewport"
+                className={`mx-auto transition-all duration-300 ${
+                  viewportMode === 'mobile'
+                    ? 'max-w-[375px] border-8 border-slate-900 rounded-3xl p-1 bg-slate-950 shadow-2xl'
+                    : 'max-w-[650px] w-full'
+                }`}
+              >
+                {selectedLibraryTemplate ? (
                   <div
-                    className="text-xs text-slate-700 leading-relaxed font-sans space-y-2"
                     dangerouslySetInnerHTML={{
-                      __html: selectedTemplate.content_html || '<p>No content provided</p>',
+                      __html: renderLuxuryTemplateHtml(
+                        selectedLibraryTemplate.id,
+                        selectedLibraryTemplate.sampleData,
+                        selectedLibraryTemplate.subject
+                      ),
                     }}
                   />
+                ) : (
+                  <div className="bg-[#090D15] rounded-xl p-1 border border-[#D4AF37]/30">
+                    <div className="bg-white p-6 rounded-lg space-y-4">
+                      <div className="text-center pb-3 border-b border-[#D4AF37]/30">
+                        <span className="font-serif font-bold text-xs tracking-widest text-[#090D15]">
+                          REALTOR BUDDY CONCIERGE
+                        </span>
+                        <p className="text-[9px] uppercase tracking-wider text-stone-400">
+                          Dubai Automated Lifecycle Notice
+                        </p>
+                      </div>
 
-                  <div className="pt-4 border-t border-stone-200 text-center">
-                    <p className="text-[10px] text-stone-400">
-                      Realtor Buddy HQ • Automated Concierge Trigger
-                    </p>
+                      <div
+                        className="text-xs text-slate-700 leading-relaxed font-sans space-y-2"
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            selectedTemplate?.content_html || '<p>No content provided</p>',
+                        }}
+                      />
+
+                      <div className="pt-4 border-t border-stone-200 text-center">
+                        <p className="text-[10px] text-stone-400">
+                          Realtor Buddy HQ • Automated Concierge Trigger
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-stone-100 px-6 py-3 border-t border-stone-200 flex justify-end">
+            <div className="bg-white px-6 py-3.5 border-t border-stone-200 flex items-center justify-between">
+              <span className="text-[11px] text-stone-500 font-medium">
+                Viewport: <strong className="capitalize text-slate-800">{viewportMode}</strong> mode
+              </span>
               <button
                 type="button"
-                onClick={() => setSelectedTemplate(null)}
+                onClick={() => {
+                  setSelectedLibraryTemplate(null);
+                  setSelectedTemplate(null);
+                }}
                 aria-label="Close Preview"
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
               >

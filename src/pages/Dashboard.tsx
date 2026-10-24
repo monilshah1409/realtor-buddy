@@ -101,9 +101,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setSelectedPropertyId(id);
     // Smoothly scroll property card into view on mobile
     const cardElement = document.querySelector(`[data-testid="property-card-${id}"]`);
-    if (cardElement) {
+    if (cardElement && typeof cardElement.scrollIntoView === 'function') {
       cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+  };
+
+  const handleCardSelect = (id: string) => {
+    setSelectedPropertyId(id);
+    onNavigate(`/property/${id}`);
+  };
+
+  const handleViewPropertyDetails = (id: string) => {
+    setSelectedPropertyId(id);
+    onNavigate(`/property/${id}`);
   };
 
   const handleShareProperty = (property: Property) => {
@@ -238,7 +248,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               selectedPropertyId={selectedPropertyId}
               shortlistedIds={shortlistedIds}
               showAgentDetails={true}
-              onSelectProperty={handleSelectProperty}
+              onSelectProperty={handleCardSelect}
               onAddToShortlist={(prop) => onToggleShortlist(prop.id)}
               onShareLink={handleShareProperty}
               onResetFilters={() => {
@@ -269,6 +279,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 properties={scoredProperties}
                 selectedPropertyId={selectedPropertyId}
                 onSelectProperty={handleSelectProperty}
+                onViewPropertyDetails={handleViewPropertyDetails}
                 className="h-full w-full"
               />
             </div>

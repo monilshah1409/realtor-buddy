@@ -18,9 +18,12 @@ import type { Profile } from '../../types';
 import {
   signInBroker,
   registerBroker,
+  sendEmailOtp,
+  verifyEmailOtp,
   PRESET_PROFILES,
   type RegisterBrokerPayload,
 } from '../../services/authService';
+import { OtpVerificationModal } from '../../components/auth/OtpVerificationModal';
 
 export interface AuthPageProps {
   onSuccess: (profile: Profile) => void;
@@ -55,6 +58,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // OTP Verification Modal State
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [activeOtpEmail, setActiveOtpEmail] = useState('');
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!signInEmail) {
@@ -85,30 +92,77 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       return;
     }
 
+    const cleanEmail = regEmail.trim().toLowerCase();
+    if (!cleanEmail.includes('@')) {
+      setErrorMessage('Please enter a valid broker email address.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
+
+    const otpRes = await sendEmailOtp(cleanEmail);
+    setIsLoading(false);
+
+    if (!otpRes.success) {
+      setErrorMessage(otpRes.error || 'Failed to dispatch verification code. Please try again.');
+      return;
+    }
+
+    setActiveOtpEmail(cleanEmail);
+    setShowOtpModal(true);
+  };
+
+  const handleVerifyOtp = async (code: string) => {
+    const verifyRes = await verifyEmailOtp(activeOtpEmail, code);
+    if (!verifyRes.success || !verifyRes.verified) {
+      return {
+        success: false,
+        verified: false,
+        error: verifyRes.error || 'Invalid verification code. Please check and try again.',
+      };
+    }
 
     const payload: RegisterBrokerPayload = {
       fullName: regFullName,
       agencyName: regAgencyName,
-      email: regEmail,
+      email: activeOtpEmail,
       password: regPassword,
       phoneNumber: regPhone,
       whatsappNumber: regWhatsApp,
       role: 'agent',
+      otpVerified: true,
     };
 
     const res = await registerBroker(payload);
-    setIsLoading(false);
 
     if (res.success && res.profile) {
+      setShowOtpModal(false);
       setSuccessMessage('Broker credentials submitted for verification!');
       setTimeout(() => {
         onSuccess(res.profile!);
       }, 500);
+      return { success: true, verified: true };
     } else {
-      setErrorMessage(res.error || 'Registration failed. Please try again.');
+      return {
+        success: false,
+        error: res.error || 'Registration failed. Please try again.',
+      };
     }
+  };
+
+  const handleResendOtp = async () => {
+    return await sendEmailOtp(activeOtpEmail);
+  };
+
+  const handleChangeOtpEmail = async (newEmail: string) => {
+    const cleanEmail = newEmail.trim().toLowerCase();
+    const res = await sendEmailOtp(cleanEmail);
+    if (res.success) {
+      setActiveOtpEmail(cleanEmail);
+      setRegEmail(cleanEmail);
+    }
+    return res;
   };
 
   const handleSelectPreset = (profileKey: string) => {
@@ -537,6 +591,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Pre-Registration OTP Verification Modal */}
+      <OtpVerificationModal
+        isOpen={showOtpModal}
+        email={activeOtpEmail}
+        onVerify={handleVerifyOtp}
+        onResend={handleResendOtp}
+        onChangeEmail={handleChangeOtpEmail}
+        onClose={() => setShowOtpModal(false)}
+      />
     </div>
   );
 };

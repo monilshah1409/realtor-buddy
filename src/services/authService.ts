@@ -1,5 +1,6 @@
 import { supabase, isLiveSupabase } from '../lib/supabase';
 import type { Profile, UserRole, ProfileStatus, SubscriptionStatus } from '../types';
+import { sendEmailViaTemplate } from './marketingService';
 
 export interface RegisterBrokerPayload {
   email: string;
@@ -10,6 +11,7 @@ export interface RegisterBrokerPayload {
   whatsappNumber: string;
   avatarUrl?: string;
   role?: UserRole;
+  otpVerified?: boolean;
 }
 
 export interface AuthResponse {
@@ -143,11 +145,142 @@ export async function signInBroker(email: string, password?: string): Promise<Au
 export const loginWithEmail = signInBroker;
 
 /**
- * Register a new broker profile in Supabase
+ * Sends a 6-digit OTP verification code to the prospective broker's email.
+ * Calls the `email-dispatcher` Supabase Edge Function in live mode,
+ * or logs to console and returns a simulated success in offline / mock mode.
+ */
+export async function sendEmailOtp(
+  email: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    return { success: false, error: 'Valid email is required' };
+  }
+
+  if (isLiveSupabase()) {
+    try {
+      const { data, error } = await supabase.functions.invoke('email-dispatcher', {
+        body: {
+          action: 'send_otp',
+          email: cleanEmail,
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message || 'Failed to send OTP' };
+      }
+
+      if (data && !data.success && data.error) {
+        return { success: false, error: data.error };
+      }
+
+      return {
+        success: true,
+        message: data?.message || 'Verification code sent',
+      };
+    } catch (err: any) {
+      console.warn('sendEmailOtp error:', err);
+      return { success: false, error: err?.message || 'Failed to send verification code' };
+    }
+  }
+
+  // Offline / mock mode
+  console.log(`[AUTH: MOCK OTP] Simulated OTP sent to ${cleanEmail}`);
+  return {
+    success: true,
+    message: 'Verification code sent (mock)',
+  };
+}
+
+/**
+ * Verifies the 6-digit OTP code against the broker's email.
+ * Calls `email-dispatcher` in live mode, or verifies against mock rules in offline mode
+ * (accepts any code except '000000' for error-case testing).
+ */
+export async function verifyEmailOtp(
+  email: string,
+  code: string
+): Promise<{ success: boolean; verified: boolean; message?: string; error?: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanCode = code ? code.trim() : '';
+
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    return { success: false, verified: false, error: 'Valid email is required' };
+  }
+
+  if (!cleanCode) {
+    return { success: false, verified: false, error: 'Verification code is required' };
+  }
+
+  if (isLiveSupabase()) {
+    try {
+      const { data, error } = await supabase.functions.invoke('email-dispatcher', {
+        body: {
+          action: 'verify_otp',
+          email: cleanEmail,
+          otp_code: cleanCode,
+        },
+      });
+
+      if (error) {
+        return {
+          success: false,
+          verified: false,
+          error: error.message || 'Verification request failed',
+        };
+      }
+
+      if (data && !data.success) {
+        return {
+          success: false,
+          verified: Boolean(data.verified),
+          error: data.error || 'Verification failed',
+        };
+      }
+
+      return {
+        success: true,
+        verified: Boolean(data?.verified),
+        message: data?.message || 'Email verified successfully',
+      };
+    } catch (err: any) {
+      console.warn('verifyEmailOtp error:', err);
+      return { success: false, verified: false, error: err?.message || 'Verification failed' };
+    }
+  }
+
+  // Offline / mock mode: accept any 6-digit code unless '000000'
+  if (cleanCode === '000000') {
+    return {
+      success: false,
+      verified: false,
+      error: 'Invalid verification code',
+    };
+  }
+
+  return {
+    success: true,
+    verified: true,
+    message: 'Email verified successfully (mock)',
+  };
+}
+
+/**
+ * Register a new broker profile in Supabase.
+ * Requires `otpVerified: true` before completion.
+ * Dispatches `broker_welcome_trial` luxury email upon success.
  */
 export async function registerBroker(payload: RegisterBrokerPayload): Promise<AuthResponse> {
   const cleanEmail = payload.email.trim().toLowerCase();
   const trialExpiresAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Enforce email verification prior to account completion
+  if (payload.otpVerified !== true) {
+    return {
+      success: false,
+      error: 'Email verification required. Please verify your OTP.',
+    };
+  }
 
   if (isLiveSupabase() && payload.password) {
     try {
@@ -172,6 +305,7 @@ export async function registerBroker(payload: RegisterBrokerPayload): Promise<Au
         role: payload.role || 'agent',
         status: 'pending_approval',
         subscription_status: 'trial',
+        email_verified: true,
         trial_expires_at: trialExpiresAt,
         created_at: new Date().toISOString(),
       };
@@ -188,8 +322,20 @@ export async function registerBroker(payload: RegisterBrokerPayload): Promise<Au
         role: newProfile.role,
         status: newProfile.status,
         subscription_status: newProfile.subscription_status,
+        email_verified: true,
         trial_expires_at: newProfile.trial_expires_at,
       });
+
+      // Dispatch welcome trial email via email-dispatcher
+      sendEmailViaTemplate({
+        to: [cleanEmail],
+        template: 'broker_welcome_trial',
+        subject: 'Welcome to Realtor Buddy VIP — 5-Day Complimentary Trial',
+        data: {
+          broker_name: payload.fullName,
+          trial_days: 5,
+        },
+      }).catch((emailErr) => console.warn('Welcome email dispatch notice:', emailErr));
 
       return { success: true, profile: newProfile };
     } catch (err: any) {
@@ -209,9 +355,21 @@ export async function registerBroker(payload: RegisterBrokerPayload): Promise<Au
     role: payload.role || 'agent',
     status: 'pending_approval',
     subscription_status: 'trial',
+    email_verified: true,
     trial_expires_at: trialExpiresAt,
     created_at: new Date().toISOString(),
   };
+
+  // Dispatch welcome trial email via email-dispatcher helper
+  sendEmailViaTemplate({
+    to: [cleanEmail],
+    template: 'broker_welcome_trial',
+    subject: 'Welcome to Realtor Buddy VIP — 5-Day Complimentary Trial',
+    data: {
+      broker_name: payload.fullName,
+      trial_days: 5,
+    },
+  }).catch((emailErr) => console.warn('Welcome email dispatch notice:', emailErr));
 
   return { success: true, profile: newProfile };
 }
