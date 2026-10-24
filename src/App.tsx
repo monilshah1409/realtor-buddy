@@ -4,7 +4,7 @@ import { mockProperties as initialMockProperties } from './data/mockProperties';
 import { Navbar, AGENT_PROFILE, ADMIN_PROFILE } from './components/layout/Navbar';
 import { Dashboard } from './pages/Dashboard';
 import { PropertyForm } from './components/property/PropertyForm';
-import { AdminApprovals } from './pages/admin/AdminApprovals';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { PublicPropertyView } from './pages/public/PublicPropertyView';
 import { PublicShortlistView } from './pages/public/PublicShortlistView';
 import SubscriptionPage from './pages/auth/SubscriptionPage';
@@ -289,6 +289,39 @@ export function App({
         notes="Curated collection of premier properties selected specifically for your Dubai investment portfolio."
       />
     );
+  } else if (
+    normalizedPath.startsWith('/property/') ||
+    (normalizedPath.startsWith('/properties/') && normalizedPath !== '/properties/new')
+  ) {
+    // 2.5 Authenticated Agent Property Detail View: /property/:id or /properties/:id
+    const idOrToken = normalizedPath.replace(/^\/(property|properties)\//, '');
+    const matchedProperty =
+      properties.find((p) => p.id === idOrToken || p.share_token === idOrToken) || properties[0];
+
+    mainContent = (
+      <div className="min-h-screen bg-[#FAF8F5] flex flex-col">
+        {/* Navigation Bar */}
+        <Navbar
+          currentPath={currentPath}
+          onNavigate={navigateTo}
+          userProfile={userProfile}
+          onProfileChange={setUserProfile}
+          pendingApprovalsCount={pendingApprovalsCount}
+          shortlistCount={shortlistedIds.length}
+          onOpenShortlist={() => setIsShortlistDrawerOpen(true)}
+        />
+
+        {/* Property Detail View */}
+        <div className="flex-1">
+          <PublicPropertyView
+            property={matchedProperty}
+            agent={userProfile || undefined}
+            showBackButton={true}
+            onBack={() => navigateTo('/')}
+          />
+        </div>
+      </div>
+    );
   } else if (normalizedPath === '/auth' || normalizedPath === '/login') {
     // 3. Broker Authentication Gateway: /auth or /login
     mainContent = (
@@ -339,7 +372,7 @@ export function App({
         />
       </div>
     );
-  } else if (!userProfile && (normalizedPath === '/properties/new' || normalizedPath === '/admin/approvals')) {
+  } else if (!userProfile && (normalizedPath === '/properties/new' || normalizedPath === '/admin' || normalizedPath === '/admin/approvals' || normalizedPath.startsWith('/admin/'))) {
     // 6. Unauthenticated Broker Gate: Redirect to Auth
     mainContent = (
       <AuthPage
@@ -373,12 +406,13 @@ export function App({
               onCancel={() => navigateTo('/')}
             />
           </div>
-        ) : normalizedPath === '/admin/approvals' ? (
+        ) : normalizedPath === '/admin' || normalizedPath === '/admin/approvals' || normalizedPath.startsWith('/admin') ? (
           <div className="flex-1">
-            <AdminApprovals
+            <AdminDashboard
+              initialTab={normalizedPath === '/admin/approvals' ? 'approvals' : undefined}
               pendingProperties={properties.filter((p) => p.status === 'private')}
-              onApprove={handleApproveProperty}
-              onReject={handleRejectProperty}
+              onApproveProperty={handleApproveProperty}
+              onRejectProperty={handleRejectProperty}
             />
           </div>
         ) : (
