@@ -6,7 +6,18 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ====================================================================
--- 1. SEED BROKER & ADMIN USERS IN auth.users & public.profiles
+-- 1. UPGRADE PROFILES SCHEMA (Add email & trial_expires_at if missing)
+-- ====================================================================
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS email TEXT,
+  ADD COLUMN IF NOT EXISTS trial_expires_at TIMESTAMPTZ;
+
+-- Index for trial expiration checks
+CREATE INDEX IF NOT EXISTS idx_profiles_trial_expires_at
+  ON public.profiles(trial_expires_at);
+
+-- ====================================================================
+-- 2. SEED BROKER & ADMIN USERS IN auth.users & public.profiles
 -- ====================================================================
 
 DO $$
@@ -14,7 +25,7 @@ DECLARE
   broker_uid UUID := '706de559-d7aa-471b-95b1-167ce36fb1f1';
   admin_uid UUID  := 'a0000000-0000-0000-0000-000000000001';
 BEGIN
-  -- 1.1 Broker User in auth.users
+  -- 2.1 Broker User in auth.users
   IF EXISTS (SELECT 1 FROM auth.users WHERE id = broker_uid OR email = 'realtorbuddy.broker@gmail.com') THEN
     UPDATE auth.users
     SET
@@ -52,7 +63,7 @@ BEGIN
     );
   END IF;
 
-  -- 1.2 Broker Profile in public.profiles
+  -- 2.2 Broker Profile in public.profiles
   INSERT INTO public.profiles (
     id,
     full_name,
@@ -92,7 +103,7 @@ BEGIN
     email = EXCLUDED.email,
     updated_at = now();
 
-  -- 1.3 Admin User in auth.users
+  -- 2.3 Admin User in auth.users
   IF EXISTS (SELECT 1 FROM auth.users WHERE id = admin_uid OR email = 'realtorbuddy.admin@gmail.com') THEN
     UPDATE auth.users
     SET
@@ -130,7 +141,7 @@ BEGIN
     );
   END IF;
 
-  -- 1.4 Admin Profile in public.profiles
+  -- 2.4 Admin Profile in public.profiles
   INSERT INTO public.profiles (
     id,
     full_name,
@@ -171,7 +182,7 @@ BEGIN
 END $$;
 
 -- ====================================================================
--- 2. PERMISSIONS & ROW-LEVEL SECURITY POLICIES FOR PROPERTIES & PROFILES
+-- 3. PERMISSIONS & ROW-LEVEL SECURITY POLICIES FOR PROPERTIES & PROFILES
 -- ====================================================================
 
 -- Grant table access to anon and authenticated roles
@@ -251,10 +262,10 @@ CREATE TRIGGER trg_property_default_creator
   FOR EACH ROW EXECUTE FUNCTION public.handle_property_default_creator();
 
 -- ====================================================================
--- 3. INSERT REAL PROPERTIES DIRECTLY INTO public.properties
+-- 4. INSERT REAL PROPERTIES DIRECTLY INTO public.properties
 -- ====================================================================
 
--- 3.1 Burj Crown Luxury Residence (Downtown Dubai)
+-- 4.1 Burj Crown Luxury Residence (Downtown Dubai)
 INSERT INTO public.properties (
   id,
   title,
@@ -319,7 +330,7 @@ ON CONFLICT (id) DO UPDATE SET
   status = 'global',
   updated_at = now();
 
--- 3.2 Chelsea Tower C Luxury Penthouse (Downtown Dubai)
+-- 4.2 Chelsea Tower C Luxury Penthouse (Downtown Dubai)
 INSERT INTO public.properties (
   id,
   title,
@@ -384,7 +395,7 @@ ON CONFLICT (id) DO UPDATE SET
   status = 'global',
   updated_at = now();
 
--- 3.3 Marina Gate Waterfront Living (Dubai Marina)
+-- 4.3 Marina Gate Waterfront Living (Dubai Marina)
 INSERT INTO public.properties (
   id,
   title,
