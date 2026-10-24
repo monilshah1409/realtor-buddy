@@ -18,7 +18,7 @@ import type { Profile, UserRole } from '../../types';
 export interface NavbarProps {
   currentPath: string;
   onNavigate: (path: string) => void;
-  userProfile: Profile;
+  userProfile?: Profile | null;
   onProfileChange: (profile: Profile) => void;
   pendingApprovalsCount?: number;
   shortlistCount?: number;
@@ -66,7 +66,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [logoAvailable, setLogoAvailable] = useState<boolean | null>(null);
 
-  const isAdmin = userProfile.role === 'admin';
+  const isTestMode = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
+  const isAdmin = userProfile?.role === 'admin';
 
   const handleRoleSwitch = (newRole: UserRole) => {
     if (newRole === 'admin') {
@@ -200,142 +201,187 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right: Quick Role Switcher & User Profile Badges */}
           <div className="hidden sm:flex items-center gap-3">
-            {/* Subscription Active Badge */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/90 shadow-2xs">
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Subscription Active</span>
-            </div>
-
-            {/* Role Switcher Pill Dropdown */}
-            <div className="relative">
+            {!userProfile ? (
               <button
                 type="button"
-                data-testid="role-switcher-button"
-                onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
-                className="flex items-center gap-2.5 p-1.5 pr-3 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50/80 transition-all bg-white shadow-2xs text-left cursor-pointer"
-                aria-expanded={isRoleDropdownOpen}
-                aria-haspopup="true"
+                onClick={() => onNavigate('/auth')}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-amber-300 border border-amber-500/30 hover:bg-slate-800 transition-all shadow-xs cursor-pointer"
               >
-                {userProfile.avatar_url ? (
-                  <img
-                    src={userProfile.avatar_url}
-                    alt={userProfile.full_name}
-                    className="w-8 h-8 rounded-lg object-cover ring-1 ring-stone-200"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-slate-900 text-amber-300 font-bold flex items-center justify-center text-xs">
-                    {userProfile.full_name.charAt(0)}
-                  </div>
-                )}
-
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-slate-900 leading-tight">
-                      {userProfile.full_name}
-                    </span>
-                    <span
-                      data-testid="profile-role-badge"
-                      className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider ${
-                        isAdmin
-                          ? 'bg-slate-900 text-amber-300 border border-amber-500/30'
-                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                      }`}
-                    >
-                      {isAdmin ? 'Admin' : 'Agent'}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
-                    {userProfile.agency_name}
-                  </span>
-                </div>
-
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+                <User className="w-3.5 h-3.5 text-amber-400" />
+                <span>Broker Sign In</span>
               </button>
-
-              {/* Role Switcher Dropdown Menu */}
-              {isRoleDropdownOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150"
-                  data-testid="role-switcher-dropdown"
-                >
-                  <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                      Switch Role Mode (Demo)
-                    </p>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      Toggle between agent discovery and platform administrator verification.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRoleSwitch('agent')}
-                    className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between transition-colors ${
-                      !isAdmin
-                        ? 'bg-emerald-50 text-emerald-900 font-bold'
-                        : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
-                        A
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold">Agent View</div>
-                        <div className="text-[10px] text-slate-400">Karim Al-Sayed • Premier Dubai</div>
-                      </div>
-                    </div>
-                    {!isAdmin && <CheckCircle className="w-4 h-4 text-emerald-600" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRoleSwitch('admin')}
-                    className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between transition-colors mt-1 ${
-                      isAdmin
-                        ? 'bg-purple-50 text-purple-900 font-bold'
-                        : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold">
-                        M
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold">Admin View (Monil & Edwin)</div>
-                        <div className="text-[10px] text-slate-400">Verification & Approvals</div>
-                      </div>
-                    </div>
-                    {isAdmin && <CheckCircle className="w-4 h-4 text-purple-600" />}
-                  </button>
-
-                  <div className="border-t border-slate-100 my-1 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onNavigate('/profile');
-                        setIsRoleDropdownOpen(false);
-                      }}
-                      className="w-full text-left p-2 rounded-lg flex items-center gap-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                    >
-                      <User className="w-3.5 h-3.5 text-amber-600" />
-                      <span>My Broker Profile</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onNavigate('/auth');
-                        setIsRoleDropdownOpen(false);
-                      }}
-                      className="w-full text-left p-2 rounded-lg flex items-center gap-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Sign In / Switch Persona</span>
-                    </button>
-                  </div>
+            ) : (
+              <>
+                {/* Subscription Active Badge */}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/90 shadow-2xs">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Subscription Active</span>
                 </div>
-              )}
-            </div>
+
+                {/* Role Switcher Pill Dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    data-testid="role-switcher-button"
+                    onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+                    className="flex items-center gap-2.5 p-1.5 pr-3 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50/80 transition-all bg-white shadow-2xs text-left cursor-pointer"
+                    aria-expanded={isRoleDropdownOpen}
+                    aria-haspopup="true"
+                  >
+                    {userProfile.avatar_url ? (
+                      <img
+                        src={userProfile.avatar_url}
+                        alt={userProfile.full_name}
+                        className="w-8 h-8 rounded-lg object-cover ring-1 ring-stone-200"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg bg-slate-900 text-amber-300 font-bold flex items-center justify-center text-xs">
+                        {userProfile.full_name?.charAt(0) || 'B'}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-900 leading-tight">
+                          {userProfile.full_name}
+                        </span>
+                        <span
+                          data-testid="profile-role-badge"
+                          className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            isAdmin
+                              ? 'bg-slate-900 text-amber-300 border border-amber-500/30'
+                              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          }`}
+                        >
+                          {isAdmin ? 'Admin' : 'Agent'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                        {userProfile.agency_name}
+                      </span>
+                    </div>
+
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+                  </button>
+
+                  {/* Role Switcher Dropdown Menu */}
+                  {isRoleDropdownOpen && (
+                    <div
+                      className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150"
+                      data-testid="role-switcher-dropdown"
+                    >
+                      {isTestMode ? (
+                        <>
+                          <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                              Switch Role Mode (Demo)
+                            </p>
+                            <p className="text-xs text-slate-600 mt-0.5">
+                              Toggle between agent discovery and platform administrator verification.
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRoleSwitch('agent')}
+                            className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between transition-colors ${
+                              !isAdmin
+                                ? 'bg-emerald-50 text-emerald-900 font-bold'
+                                : 'hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
+                                A
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold">Agent View</div>
+                                <div className="text-[10px] text-slate-400">Karim Al-Sayed • Premier Dubai</div>
+                              </div>
+                            </div>
+                            {!isAdmin && <CheckCircle className="w-4 h-4 text-emerald-600" />}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRoleSwitch('admin')}
+                            className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between transition-colors mt-1 ${
+                              isAdmin
+                                ? 'bg-purple-50 text-purple-900 font-bold'
+                                : 'hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold">
+                                M
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold">Admin View (Monil & Edwin)</div>
+                                <div className="text-[10px] text-slate-400">Verification & Approvals</div>
+                              </div>
+                            </div>
+                            {isAdmin && <CheckCircle className="w-4 h-4 text-purple-600" />}
+                          </button>
+                        </>
+                      ) : (
+                        <div className="px-3 py-2 border-b border-stone-100 mb-1">
+                          <p className="text-xs font-bold text-slate-900">{userProfile.full_name}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{userProfile.agency_name}</p>
+                        </div>
+                      )}
+
+                      <div className="border-t border-slate-100 my-1 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onNavigate('/profile');
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-lg flex items-center gap-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <User className="w-3.5 h-3.5 text-amber-600" />
+                          <span>My Broker Profile</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onNavigate('/subscribe');
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-lg flex items-center gap-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Subscription Plan</span>
+                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onNavigate('/admin/approvals');
+                              setIsRoleDropdownOpen(false);
+                            }}
+                            className="w-full text-left p-2 rounded-lg flex items-center gap-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Approvals Console</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onNavigate('/auth');
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-lg flex items-center gap-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+                        >
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -407,63 +453,90 @@ export const Navbar: React.FC<NavbarProps> = ({
               })}
           </nav>
 
-          {/* Mobile Role Switcher */}
+          {/* Mobile Profile / Role Actions */}
           <div className="pt-3 border-t border-slate-100">
-            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">
-              Role Switcher (Demo)
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  handleRoleSwitch('agent');
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`py-2 px-3 rounded-xl text-xs font-bold border ${
-                  !isAdmin
-                    ? 'bg-emerald-600 text-white border-emerald-600'
-                    : 'bg-white text-slate-700 border-slate-200'
-                }`}
-              >
-                Agent View
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleRoleSwitch('admin');
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`py-2 px-3 rounded-xl text-xs font-bold border ${
-                  isAdmin
-                    ? 'bg-purple-600 text-white border-purple-600'
-                    : 'bg-white text-slate-700 border-slate-200'
-                }`}
-              >
-                Admin (Monil & Edwin)
-              </button>
-            </div>
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onNavigate('/profile');
-                  setIsMobileMenuOpen(false);
-                }}
-                className="flex-1 py-2 px-3 rounded-xl text-xs font-medium border border-stone-200 bg-stone-50 text-slate-800 text-center"
-              >
-                My Profile
-              </button>
+            {isTestMode ? (
+              <>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">
+                  Role Switcher (Demo)
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleRoleSwitch('agent');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border ${
+                      !isAdmin
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    Agent View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleRoleSwitch('admin');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border ${
+                      isAdmin
+                        ? 'bg-purple-600 text-white border-purple-600'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    Admin (Monil & Edwin)
+                  </button>
+                </div>
+              </>
+            ) : userProfile ? (
+              <div className="space-y-2">
+                <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-slate-900 text-amber-300 font-bold flex items-center justify-center text-xs">
+                    {userProfile.full_name?.charAt(0) || 'B'}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{userProfile.full_name}</p>
+                    <p className="text-[10px] text-slate-500">{userProfile.agency_name}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onNavigate('/profile');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="py-2 px-3 rounded-xl text-xs font-semibold border border-stone-200 bg-white text-slate-800 text-center"
+                  >
+                    My Profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onNavigate('/auth');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="py-2 px-3 rounded-xl text-xs font-semibold border border-rose-200 bg-rose-50 text-rose-800 text-center"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            ) : (
               <button
                 type="button"
                 onClick={() => {
                   onNavigate('/auth');
                   setIsMobileMenuOpen(false);
                 }}
-                className="flex-1 py-2 px-3 rounded-xl text-xs font-medium border border-amber-200 bg-amber-50 text-amber-900 text-center"
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-900 text-amber-300 border border-amber-500/30 text-center shadow-xs"
               >
-                Sign In
+                Broker Sign In / Register
               </button>
-            </div>
+            )}
           </div>
         </div>
       )}

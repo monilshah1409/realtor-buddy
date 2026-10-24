@@ -138,7 +138,7 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
 
   // Agent fallbacks
   const agentName = agent?.full_name || 'Verified Dubai Realtor';
-  const agencyName = agent?.agency_name || 'Premier Dubai Properties';
+  const agencyName = agent?.agency_name || 'Dubai Luxury Real Estate';
   const whatsappNumber = agent?.whatsapp_number || '+971501234567';
   const phoneNumber = agent?.phone_number || agent?.whatsapp_number || '+971501234567';
   const avatarUrl = agent?.avatar_url;

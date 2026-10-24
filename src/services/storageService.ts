@@ -17,9 +17,19 @@ function isPdfFile(file: File): boolean {
 }
 
 /**
- * Uploads a local desktop PDF brochure to Microsoft OneDrive via Microsoft Graph API.
- * 
- * Target endpoint: `/me/drive/root:/RealtorBuddy/Brochures/${file.name}:/content`
+ * Gets the dedicated Microsoft OneDrive folder name specifically for this website.
+ * Defaults to 'RealtorBuddy' or environment variable VITE_ONEDRIVE_FOLDER_NAME.
+ */
+export function getOneDriveWebsiteFolder(): string {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ONEDRIVE_FOLDER_NAME) {
+    return import.meta.env.VITE_ONEDRIVE_FOLDER_NAME.replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+  return 'RealtorBuddy';
+}
+
+/**
+ * Uploads a local desktop PDF brochure to Microsoft OneDrive via Microsoft Graph API
+ * inside the website's dedicated OneDrive folder: `/${WEBSITE_FOLDER}/Brochures/${fileName}`.
  * 
  * If Microsoft Graph API credentials (`VITE_MS_GRAPH_TOKEN`) are not provided
  * in the environment (e.g. offline development, unit tests, or sandbox demo),
@@ -37,13 +47,14 @@ export async function uploadBrochureToOneDrive(file: File): Promise<OneDriveUplo
     null;
 
   if (msGraphToken) {
+    const websiteFolder = getOneDriveWebsiteFolder();
     const fileExt = file.name.includes('.') ? file.name.split('.').pop() : 'pdf';
     const cleanBaseName = file.name
       .replace(/\.[^/.]+$/, '')
       .replace(/[^a-zA-Z0-9_-]/g, '_');
     const uniqueFileName = `${Date.now()}_${cleanBaseName}.${fileExt}`;
     const encodedUniqueFileName = encodeURIComponent(uniqueFileName);
-    const endpoint = `https://graph.microsoft.com/v1.0/me/drive/root:/RealtorBuddy/Brochures/${encodedUniqueFileName}:/content?@microsoft.graph.conflictBehavior=rename`;
+    const endpoint = `https://graph.microsoft.com/v1.0/me/drive/root:/${websiteFolder}/Brochures/${encodedUniqueFileName}:/content?@microsoft.graph.conflictBehavior=rename`;
 
     const response = await fetch(endpoint, {
       method: 'PUT',
@@ -85,6 +96,55 @@ export async function uploadBrochureToOneDrive(file: File): Promise<OneDriveUplo
     embedUrl,
     fileName: file.name,
   };
+}
+
+/**
+ * Backs up website data (e.g. listings export or JSON payload) into the website's
+ * dedicated folder on OneDrive: `/${WEBSITE_FOLDER}/Website_Data/${fileName}`.
+ */
+export async function backupDataToOneDrive(
+  dataPayload: Record<string, any> | string,
+  fileName = `realtor_buddy_export_${Date.now()}.json`
+): Promise<{ success: boolean; webUrl?: string; error?: string }> {
+  const msGraphToken =
+    (typeof import.meta !== 'undefined' &&
+      import.meta.env &&
+      import.meta.env.VITE_MS_GRAPH_TOKEN) ||
+    null;
+
+  if (!msGraphToken) {
+    return {
+      success: true,
+      webUrl: `https://1drv.ms/u/s!mock-${fileName}`,
+    };
+  }
+
+  try {
+    const websiteFolder = getOneDriveWebsiteFolder();
+    const content = typeof dataPayload === 'string' ? dataPayload : JSON.stringify(dataPayload, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const encodedFileName = encodeURIComponent(fileName);
+    const endpoint = `https://graph.microsoft.com/v1.0/me/drive/root:/${websiteFolder}/Website_Data/${encodedFileName}:/content?@microsoft.graph.conflictBehavior=replace`;
+
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${msGraphToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: blob,
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return { success: false, error: errText };
+    }
+
+    const data = await response.json();
+    return { success: true, webUrl: data.webUrl };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }
 
 /**

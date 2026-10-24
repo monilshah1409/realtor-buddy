@@ -299,7 +299,7 @@ export default function SubscriptionPage({
               <input
                 id="referral-code-input"
                 type="text"
-                placeholder="e.g. KARIM-DUBAI"
+                placeholder="e.g. DUBAI-BROKER or EMAAR-PARTNER"
                 value={referralInput}
                 onChange={(e) => setReferralInput(e.target.value)}
                 className="flex-1 h-9 px-3 text-xs uppercase font-medium bg-slate-50 focus:bg-white text-slate-900 border border-slate-200 focus:border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-hidden transition-all"

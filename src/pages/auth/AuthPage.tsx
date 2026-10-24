@@ -33,6 +33,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   onNavigateHome,
   initialMode = 'sign_in',
 }) => {
+  const isTestMode = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
   const [activeTab, setActiveTab] = useState<'sign_in' | 'register' | 'quick_switch'>(
     initialMode
   );
@@ -193,21 +194,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             <User className="w-3.5 h-3.5" />
             <span>Register</span>
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('quick_switch');
-              setErrorMessage(null);
-            }}
-            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'quick_switch'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Demo Switch</span>
-          </button>
+          {isTestMode && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('quick_switch');
+                setErrorMessage(null);
+              }}
+              className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'quick_switch'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Demo Switch</span>
+            </button>
+          )}
         </div>
 
         {/* Card Body */}

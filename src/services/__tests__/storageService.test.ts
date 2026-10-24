@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
-import { uploadBrochureToOneDrive, compressAndUploadPhoto, compressImage } from '../storageService';
+import { uploadBrochureToOneDrive, compressAndUploadPhoto, compressImage, getOneDriveWebsiteFolder, backupDataToOneDrive } from '../storageService';
 import { supabase } from '../../lib/supabase';
 
 vi.mock('../../lib/supabase', () => {
@@ -101,6 +101,18 @@ describe('Storage Service', () => {
 
       const mockPhoto = new File(['fake-image-bytes'], 'fail.jpg', { type: 'image/jpeg' });
       await expect(compressAndUploadPhoto(mockPhoto)).rejects.toThrow('Upload error: quota exceeded');
+    });
+  });
+
+  describe('getOneDriveWebsiteFolder and backupDataToOneDrive', () => {
+    it('returns default or custom website folder in OneDrive', () => {
+      expect(getOneDriveWebsiteFolder()).toBe('RealtorBuddy');
+    });
+
+    it('backs up data to dedicated OneDrive folder', async () => {
+      const res = await backupDataToOneDrive({ status: 'live' }, 'test_backup.json');
+      expect(res.success).toBe(true);
+      expect(res.webUrl).toContain('test_backup.json');
     });
   });
 });

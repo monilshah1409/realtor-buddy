@@ -50,15 +50,15 @@ export const PublicShortlistView: React.FC<PublicShortlistViewProps> = ({
           .filter(Boolean) as (Property | PublicProperty)[])
       : []);
 
-  const clientName = initialClientName || shortlist?.client_name || 'Valued Client';
+  const clientName = initialClientName || shortlist?.client_name || 'Private Client';
   const notes =
     initialNotes ||
     shortlist?.notes ||
-    'Curated collection of premier properties selected specifically for your investment profile.';
+    'Exclusive property portfolio curated specifically for your Dubai luxury investment profile.';
 
   // Agent brand fallbacks
   const agentName = agent?.full_name || 'Verified Dubai Realtor';
-  const agencyName = agent?.agency_name || 'Premier Dubai Properties';
+  const agencyName = agent?.agency_name || 'Dubai Luxury Real Estate';
   const whatsappNumber = agent?.whatsapp_number || '+971501234567';
   const phoneNumber = agent?.phone_number || agent?.whatsapp_number || '+971501234567';
   const avatarUrl = agent?.avatar_url;

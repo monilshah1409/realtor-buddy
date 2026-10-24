@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Clock, AlertTriangle, ShieldCheck, Mail } from 'lucide-react';
 import { Profile } from '../../types';
 import SubscriptionPage from '../../pages/auth/SubscriptionPage';
 
@@ -23,7 +23,7 @@ export default function PaywallGate({
   if (!profile || profile.subscription_status !== 'active') {
     const userEmail = user?.email || (profile as any)?.email || 'agent@realtorbuddy.ae';
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-[#FAF8F5] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <SubscriptionPage userEmail={userEmail} />
       </div>
     );
@@ -33,53 +33,42 @@ export default function PaywallGate({
   // If subscription is paid and active, but admin approval is pending
   if (profile.status === 'pending_approval') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-8 text-center">
-          {/* Dubai Real Estate Badge / Icon */}
-          <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-5">
-            <svg
-              className="w-8 h-8 text-amber-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-stone-200/90 p-8 text-center relative overflow-hidden">
+          {/* Subtle gold decorative glow */}
+          <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Verification Badge */}
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-5 text-amber-600 shadow-xs">
+            <Clock className="w-8 h-8" />
           </div>
 
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 uppercase tracking-wide mb-3">
+          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 uppercase tracking-wider mb-3">
             Subscription Active
           </span>
 
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">
+          <h2 className="text-2xl font-serif font-bold text-slate-900 mb-2">
             Broker Verification in Progress
           </h2>
 
-          <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100 my-4 text-left text-sm text-emerald-900">
-            <p className="font-semibold mb-1">Your subscription is active!</p>
+          <div className="bg-emerald-50/80 rounded-2xl p-4 border border-emerald-200/70 my-4 text-left text-xs leading-relaxed text-emerald-950">
+            <p className="font-bold text-sm mb-1 text-emerald-900">Your subscription is active!</p>
             <p className="text-emerald-800">
               Monil & Edwin are verifying your broker credentials. You will have full access within 2 hours.
             </p>
           </div>
 
-          <p className="text-xs text-slate-500 mb-6">
+          <p className="text-xs text-stone-500 mb-6 leading-relaxed">
             To maintain confidential developer wholesale pricing, all agent credentials undergo manual verification.
           </p>
 
-          <div className="border-t border-slate-100 pt-5">
+          <div className="border-t border-stone-100 pt-5 space-y-2">
             <a
-              href="https://wa.me/971501234567?text=Hello%20Monil%20and%20Edwin,%20I%20subscribed%20to%20Realtor%20Buddy%20and%20need%20verification."
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center space-x-2 w-full py-2.5 px-4 rounded-xl border border-emerald-300 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100 text-sm font-semibold transition-colors"
+              href="mailto:mswebdevelopments.uae@gmail.com?subject=Broker%20Verification%20Priority%20Inquiry"
+              className="inline-flex items-center justify-center space-x-2 w-full py-2.5 px-4 rounded-xl border border-amber-500/40 text-amber-900 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-semibold transition-colors"
             >
-              <MessageSquare className="w-4 h-4 text-emerald-600" />
-              <span>Expedite via WhatsApp</span>
+              <Mail className="w-4 h-4 text-amber-600" />
+              <span>Contact Concierge Desk</span>
             </a>
           </div>
         </div>
@@ -90,27 +79,22 @@ export default function PaywallGate({
   // 4. Suspended Account Gate
   if (profile.status === 'suspended') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border border-rose-200 p-8 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-rose-100 flex items-center justify-center mb-4">
-            <svg
-              className="w-8 h-8 text-rose-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-rose-200 p-8 text-center">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mb-4 text-rose-600">
+            <AlertTriangle className="w-8 h-8" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Account Suspended</h2>
-          <p className="text-sm text-slate-600 mb-4">
+          <h2 className="text-xl font-serif font-bold text-slate-900 mb-2">Account Suspended</h2>
+          <p className="text-xs text-slate-600 mb-4 leading-relaxed">
             Your broker account has been suspended. Please contact platform administration to resolve this matter.
           </p>
+          <a
+            href="mailto:mswebdevelopments.uae@gmail.com?subject=Suspended%20Account%20Inquiry"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span>Contact Support</span>
+          </a>
         </div>
       </div>
     );

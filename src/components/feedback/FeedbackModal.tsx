@@ -237,7 +237,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                   aria-label="Full Name"
                   type="text"
                   required
-                  placeholder="e.g. Karim Al-Sayed"
+                  placeholder="e.g. Tariq Mansoor"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full h-10 px-3 text-xs sm:text-sm font-medium bg-slate-50 focus:bg-white text-slate-900 border border-slate-200 focus:border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-hidden transition-all"

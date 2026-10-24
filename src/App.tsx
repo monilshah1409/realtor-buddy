@@ -47,12 +47,16 @@ export function App({
     return '/';
   });
 
-  // Current authenticated profile
-  const [userProfile, setUserProfile] = useState<Profile>(initialProfile);
-
   // In test environments or when explicitly provided as prop, use test fixtures.
   // In live production, start with clean real data and fetch from Supabase.
   const isTestMode = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
+
+  // Current authenticated profile
+  const [userProfile, setUserProfile] = useState<Profile | null>(() => {
+    if (initialProfile) return initialProfile;
+    if (isTestMode) return AGENT_PROFILE;
+    return null;
+  });
   const defaultInitial = initialProperties ?? (isTestMode ? initialMockProperties : []);
 
   // Application properties collection
@@ -184,7 +188,7 @@ export function App({
       brochure_onedrive_url: propertyData.brochure_onedrive_url,
       brochure_file_name: propertyData.brochure_file_name,
       status: 'private', // Agent submissions begin in private status pending admin verification
-      created_by: userProfile.id,
+      created_by: userProfile?.id || '00000000-0000-0000-0000-000000000001',
       share_token: `share-${newId}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -234,7 +238,7 @@ export function App({
     mainContent = (
       <PublicPropertyView
         property={matchedProperty}
-        agent={userProfile}
+        agent={userProfile || undefined}
         showBackButton={false}
       />
     );
@@ -247,7 +251,7 @@ export function App({
     mainContent = (
       <PublicShortlistView
         properties={displayProperties}
-        agent={userProfile}
+        agent={userProfile || undefined}
         clientName="Valued Client"
         notes="Curated collection of premier properties selected specifically for your Dubai investment portfolio."
       />
@@ -265,81 +269,110 @@ export function App({
     );
   } else if (normalizedPath === '/profile') {
     // 4. Broker Profile Management: /profile
-    mainContent = (
-      <ProfilePage
-        userProfile={userProfile}
-        onProfileUpdate={(updated) => setUserProfile(updated)}
-        onSignOut={() => {
-          setUserProfile(AGENT_PROFILE);
-          navigateTo('/auth');
-        }}
-        onNavigate={navigateTo}
-      />
-    );
+    if (!userProfile) {
+      mainContent = (
+        <AuthPage
+          onSuccess={(profile) => {
+            setUserProfile(profile);
+            navigateTo('/profile');
+          }}
+          onNavigateHome={() => navigateTo('/')}
+        />
+      );
+    } else {
+      mainContent = (
+        <ProfilePage
+          userProfile={userProfile}
+          onProfileUpdate={(updated) => setUserProfile(updated)}
+          onSignOut={() => {
+            setUserProfile(null);
+            navigateTo('/auth');
+          }}
+          onNavigate={navigateTo}
+        />
+      );
+    }
   } else if (normalizedPath === '/subscribe') {
     // 5. Subscription Page (Direct Checkout): /subscribe
     mainContent = (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <SubscriptionPage
-          userEmail="agent@realtorbuddy.ae"
+          userEmail={userProfile?.id ? undefined : 'agent@realtorbuddy.ae'}
           onPaymentInitiated={() => {
-            setUserProfile((prev) => ({
-              ...prev,
-              subscription_status: 'active',
-            }));
+            setUserProfile((prev) => (prev ? { ...prev, subscription_status: 'active' } : null));
             navigateTo('/');
           }}
         />
       </div>
     );
-  } else {
-    // 4. Protected Routes (Wrapped in PaywallGate & displaying Navbar)
+  } else if (!userProfile && (normalizedPath === '/properties/new' || normalizedPath === '/admin/approvals')) {
+    // 6. Unauthenticated Broker Gate: Redirect to Auth
     mainContent = (
-      <PaywallGate profile={userProfile} user={{ email: 'agent@realtorbuddy.ae' }}>
-        <div className="min-h-screen bg-slate-50 flex flex-col">
-          {/* Navigation Bar */}
-          <Navbar
-            currentPath={currentPath}
-            onNavigate={navigateTo}
-            userProfile={userProfile}
-            onProfileChange={setUserProfile}
-            pendingApprovalsCount={pendingApprovalsCount}
-            shortlistCount={shortlistedIds.length}
-            onOpenShortlist={() => setIsShortlistDrawerOpen(true)}
-          />
-
-          {/* Content Body Based on Current Path */}
-          {normalizedPath === '/properties/new' ? (
-            <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <PropertyForm
-                onSubmit={handleCreateProperty}
-                onCancel={() => navigateTo('/')}
-              />
-            </div>
-          ) : normalizedPath === '/admin/approvals' ? (
-            <div className="flex-1">
-              <AdminApprovals
-                pendingProperties={properties.filter((p) => p.status === 'private')}
-                onApprove={handleApproveProperty}
-                onReject={handleRejectProperty}
-              />
-            </div>
-          ) : (
-            /* Default: Agent Dashboard (Browse & Map) */
-            <Dashboard
-              properties={properties.filter((p) => p.status !== 'rejected')}
-              agentProfile={userProfile}
-              shortlistedIds={shortlistedIds}
-              onToggleShortlist={handleToggleShortlist}
-              onClearShortlist={handleClearShortlist}
-              onNavigate={navigateTo}
-              isShortlistDrawerOpen={isShortlistDrawerOpen}
-              onCloseShortlistDrawer={() => setIsShortlistDrawerOpen(false)}
-            />
-          )}
-        </div>
-      </PaywallGate>
+      <AuthPage
+        onSuccess={(profile) => {
+          setUserProfile(profile);
+          navigateTo(normalizedPath);
+        }}
+        onNavigateHome={() => navigateTo('/')}
+      />
     );
+  } else {
+    // 7. Standard Routes (Dashboard & Protected Broker Routes)
+    const content = (
+      <div className="min-h-screen bg-[#FAF8F5] flex flex-col">
+        {/* Navigation Bar */}
+        <Navbar
+          currentPath={currentPath}
+          onNavigate={navigateTo}
+          userProfile={userProfile}
+          onProfileChange={setUserProfile}
+          pendingApprovalsCount={pendingApprovalsCount}
+          shortlistCount={shortlistedIds.length}
+          onOpenShortlist={() => setIsShortlistDrawerOpen(true)}
+        />
+
+        {/* Content Body Based on Current Path */}
+        {normalizedPath === '/properties/new' ? (
+          <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <PropertyForm
+              onSubmit={handleCreateProperty}
+              onCancel={() => navigateTo('/')}
+            />
+          </div>
+        ) : normalizedPath === '/admin/approvals' ? (
+          <div className="flex-1">
+            <AdminApprovals
+              pendingProperties={properties.filter((p) => p.status === 'private')}
+              onApprove={handleApproveProperty}
+              onReject={handleRejectProperty}
+            />
+          </div>
+        ) : (
+          /* Default: Explore & Map Dashboard */
+          <Dashboard
+            properties={properties.filter((p) => p.status !== 'rejected')}
+            agentProfile={userProfile || undefined}
+            shortlistedIds={shortlistedIds}
+            onToggleShortlist={handleToggleShortlist}
+            onClearShortlist={handleClearShortlist}
+            onNavigate={navigateTo}
+            isShortlistDrawerOpen={isShortlistDrawerOpen}
+            onCloseShortlistDrawer={() => setIsShortlistDrawerOpen(false)}
+          />
+        )}
+      </div>
+    );
+
+    // If user is authenticated as an agent with inactive subscription, enforce PaywallGate
+    if (userProfile && userProfile.role !== 'admin' && userProfile.subscription_status !== 'active') {
+      mainContent = (
+        <PaywallGate profile={userProfile} user={{ email: userProfile?.id || 'agent@realtorbuddy.ae' }}>
+          {content}
+        </PaywallGate>
+      );
+    } else {
+      mainContent = content;
+    }
   }
 
   return (
