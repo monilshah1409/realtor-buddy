@@ -17,7 +17,7 @@ describe('PaywallGate', () => {
     );
     expect(screen.queryByText('Protected Property Search')).toBeNull();
     expect(screen.getByText(/Subscribe to Realtor Buddy/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Pay with Apple Pay \/ Card/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Pay 149 AED/i })).toBeTruthy();
   });
 
   it('allows access when agent has active subscription and approved status', () => {
@@ -69,11 +69,11 @@ describe('PaywallGate', () => {
     expect(screen.getByText(/Subscribe to Realtor Buddy/i)).toBeTruthy();
   });
 
-  it('allows toggling between monthly and annual plans and triggers checkout session', async () => {
+  it('triggers checkout session for 149 AED monthly plan when Pay is clicked', async () => {
     const spyCreate = vi.spyOn(paymentService, 'createCheckoutSession').mockResolvedValue({
-      sessionId: 'mock_sess_annual_123',
-      checkoutUrl: 'https://checkout.ziina.com/session/mock_annual_123',
-      finalPriceAed: 4990,
+      sessionId: 'mock_sess_monthly_149',
+      checkoutUrl: 'https://checkout.ziina.com/session/mock_monthly_149',
+      finalPriceAed: 149,
       isZeroAed: false,
       autoRenew: true,
     });
@@ -90,15 +90,11 @@ describe('PaywallGate', () => {
       </PaywallGate>
     );
 
-    // Switch to Annual plan
-    const annualOption = screen.getByLabelText(/Annual plan/i);
-    fireEvent.click(annualOption);
-
-    const payBtn = screen.getByRole('button', { name: /Pay with Apple Pay \/ Card/i });
+    const payBtn = screen.getByRole('button', { name: /Pay 149 AED/i });
     fireEvent.click(payBtn);
 
     await waitFor(() => {
-      expect(spyCreate).toHaveBeenCalledWith('annual', 'broker@dubai.ae', expect.anything());
+      expect(spyCreate).toHaveBeenCalledWith('monthly', 'broker@dubai.ae', expect.anything());
     });
   });
 });

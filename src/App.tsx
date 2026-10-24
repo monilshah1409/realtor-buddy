@@ -358,8 +358,8 @@ export function App({
         />
       );
     }
-  } else if (normalizedPath === '/subscribe') {
-    // 5. Subscription Page (Direct Checkout): /subscribe
+  } else if (normalizedPath === '/subscribe' || normalizedPath === '/subscription') {
+    // 5. Subscription Page (Direct Checkout): /subscribe or /subscription
     mainContent = (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <SubscriptionPage
@@ -431,16 +431,16 @@ export function App({
       </div>
     );
 
-    // If user is authenticated as an agent with inactive subscription, enforce PaywallGate
-    if (userProfile && userProfile.role !== 'admin' && userProfile.subscription_status !== 'active') {
-      mainContent = (
-        <PaywallGate profile={userProfile} user={{ email: userProfile?.id || 'agent@realtorbuddy.ae' }}>
-          {content}
-        </PaywallGate>
-      );
-    } else {
-      mainContent = content;
-    }
+    // [PAUSED FOR NOW: Re-enable for final production launch]
+    // if (userProfile && userProfile.role !== 'admin' && userProfile.subscription_status !== 'active') {
+    //   // if (user && isTrialExpired(user)) { navigate('/subscription'); }
+    //   mainContent = (
+    //     <PaywallGate profile={userProfile} user={{ email: userProfile?.id || 'agent@realtorbuddy.ae' }}>
+    //       {content}
+    //     </PaywallGate>
+    //   );
+    // }
+    mainContent = content;
   }
 
   return (

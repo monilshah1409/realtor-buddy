@@ -17,12 +17,12 @@ describe('Realtor Buddy Main App', () => {
     expect(screen.getByTestId('dubai-map-wrapper')).toBeInTheDocument();
   });
 
-  it('renders navigation links and user profile with subscription active badge', () => {
+  it('renders navigation links and user profile with VIP Pro Member badge', () => {
     render(<App />);
     expect(screen.getByText('Browse & Map')).toBeInTheDocument();
     expect(screen.getByText('Add Property')).toBeInTheDocument();
     expect(screen.getByText('My Shortlists')).toBeInTheDocument();
-    expect(screen.getByText(/Subscription Active/i)).toBeInTheDocument();
+    expect(screen.getByText(/VIP Pro Member/i)).toBeInTheDocument();
     expect(screen.getByText('Karim Al-Sayed')).toBeInTheDocument();
   });
 
@@ -123,7 +123,7 @@ describe('Realtor Buddy Main App', () => {
     expect(screen.getAllByText('Burj Crown Luxury Residence').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('redirects to subscription paywall when agent profile subscription is inactive', () => {
+  it('allows access with soft-paused paywall while displaying upgrade indicator in navbar when subscription is inactive', () => {
     const inactiveProfile = {
       ...AGENT_PROFILE,
       subscription_status: 'inactive' as const,
@@ -131,10 +131,18 @@ describe('Realtor Buddy Main App', () => {
 
     render(<App initialProfile={inactiveProfile} />);
 
-    // PaywallGate renders subscription page
+    // Paywall is softly paused so brokers can test features freely
+    expect(screen.getByTestId('dubai-map-wrapper')).toBeInTheDocument();
+    // Navbar displays trial expired upgrade badge linking to /subscription
+    expect(screen.getByRole('button', { name: /Trial Expired • Upgrade to Pro/i })).toBeInTheDocument();
+  });
+
+  it('renders subscription page when navigating to /subscription or /subscribe', () => {
+    render(<App initialPath="/subscription" />);
+
     expect(screen.getByText(/Subscribe to Realtor Buddy/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Monthly Pro Broker/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByTestId('dubai-map-wrapper')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Pay 149 AED$/i })).toBeInTheDocument();
   });
 
   it('renders universal feedback button and opens feedback modal with support email', () => {
@@ -146,5 +154,41 @@ describe('Realtor Buddy Main App', () => {
     fireEvent.click(feedbackBtn);
     expect(screen.getByTestId('feedback-modal-content')).toBeInTheDocument();
     expect(screen.getAllByText('mswebdevelopments.uae@gmail.com').length).toBeGreaterThan(0);
+  });
+
+  it('renders property detail view when navigating to /property/:id with back button returning to dashboard', () => {
+    const testProp = mockProperties[0];
+    render(<App initialPath={`/property/${testProp.id}`} />);
+
+    // Should render Navbar
+    expect(screen.getByText('Browse & Map')).toBeInTheDocument();
+
+    // Should render property title and details
+    expect(screen.getAllByText(testProp.title).length).toBeGreaterThan(0);
+
+    // Should have back button
+    const backBtn = screen.getByRole('button', { name: /^Back/i });
+    expect(backBtn).toBeInTheDocument();
+
+    // Clicking back button navigates to home dashboard
+    fireEvent.click(backBtn);
+    expect(screen.getByTestId('property-list')).toBeInTheDocument();
+  });
+
+  it('redirects to property detail page when clicking a property card from dashboard', () => {
+    const testProp = mockProperties[0];
+    render(<App />);
+
+    // Dashboard shows property list
+    expect(screen.getByTestId('property-list')).toBeInTheDocument();
+
+    // Click on the property card
+    const card = screen.getByTestId(`property-card-${testProp.id}`);
+    fireEvent.click(card);
+
+    // Detail view is rendered with Back button and property title
+    expect(screen.getByRole('button', { name: /^Back/i })).toBeInTheDocument();
+    expect(screen.getAllByText(testProp.title).length).toBeGreaterThan(0);
+    expect(screen.getByText('Agent Wholesale Price')).toBeInTheDocument();
   });
 });

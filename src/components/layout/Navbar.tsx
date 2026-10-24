@@ -12,8 +12,10 @@ import {
   ChevronDown,
   Sparkles,
   ExternalLink,
+  Clock,
 } from 'lucide-react';
 import type { Profile, UserRole } from '../../types';
+import { isTrialExpired } from '../../services/paymentService';
 
 export interface NavbarProps {
   currentPath: string;
@@ -101,6 +103,73 @@ export const Navbar: React.FC<NavbarProps> = ({
       pill: pendingApprovalsCount > 0 ? pendingApprovalsCount : null,
     },
   ];
+
+  // Broker trial and subscription status indicator
+  const renderSubscriptionBadge = (isMobile: boolean = false) => {
+    if (!userProfile) return null;
+
+    const navigateToSub = () => {
+      onNavigate('/subscription');
+      if (isMobile) setIsMobileMenuOpen(false);
+    };
+
+    if (userProfile.subscription_status === 'trial') {
+      const expired = isTrialExpired(userProfile);
+      if (expired) {
+        return (
+          <button
+            type="button"
+            onClick={navigateToSub}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-950 border border-amber-400/60 hover:bg-amber-500/25 transition-colors shadow-2xs cursor-pointer"
+            title="Trial expired. Upgrade to Pro"
+          >
+            <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+            <span>Trial Expired • Upgrade to Pro</span>
+          </button>
+        );
+      }
+
+      // Active trial calculation
+      const msLeft = userProfile.trial_expires_at
+        ? new Date(userProfile.trial_expires_at).getTime() - Date.now()
+        : 5 * 24 * 60 * 60 * 1000;
+      const daysLeft = Math.max(1, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+
+      return (
+        <button
+          type="button"
+          onClick={navigateToSub}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors shadow-2xs cursor-pointer"
+          title="Active trial. View subscription details"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <span>5-Day Free Trial ({daysLeft} {daysLeft === 1 ? 'day' : 'days'} left)</span>
+        </button>
+      );
+    }
+
+    if (userProfile.subscription_status === 'active') {
+      return (
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/90 shadow-2xs">
+          <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span>VIP Pro Member</span>
+        </div>
+      );
+    }
+
+    // Default for inactive, past_due, or canceled
+    return (
+      <button
+        type="button"
+        onClick={navigateToSub}
+        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-950 border border-amber-400/60 hover:bg-amber-500/25 transition-colors shadow-2xs cursor-pointer"
+        title="Upgrade to Pro"
+      >
+        <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+        <span>Trial Expired • Upgrade to Pro</span>
+      </button>
+    );
+  };
 
   return (
     <header className={`bg-white/95 backdrop-blur-md border-b border-stone-200/80 sticky top-0 z-40 shadow-xs ${className}`}>
@@ -214,11 +283,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             ) : (
               <>
-                {/* Subscription Active Badge */}
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/90 shadow-2xs">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Subscription Active</span>
-                </div>
+                {/* Broker Trial / Subscription Badge */}
+                {renderSubscriptionBadge()}
 
                 {/* Role Switcher Pill Dropdown */}
                 <div className="relative">
@@ -347,7 +413,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            onNavigate('/subscribe');
+                            onNavigate('/subscription');
                             setIsRoleDropdownOpen(false);
                           }}
                           className="w-full text-left p-2 rounded-lg flex items-center gap-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
@@ -495,13 +561,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               </>
             ) : userProfile ? (
               <div className="space-y-2">
-                <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-slate-900 text-amber-300 font-bold flex items-center justify-center text-xs">
-                    {userProfile.full_name?.charAt(0) || 'B'}
+                <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 text-amber-300 font-bold flex items-center justify-center text-xs">
+                      {userProfile.full_name?.charAt(0) || 'B'}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">{userProfile.full_name}</p>
+                      <p className="text-[10px] text-slate-500">{userProfile.agency_name}</p>
+                    </div>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900">{userProfile.full_name}</p>
-                    <p className="text-[10px] text-slate-500">{userProfile.agency_name}</p>
+                    {renderSubscriptionBadge(true)}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">

@@ -7,7 +7,20 @@ import {
   type CouponValidationResult,
   type ReferralValidationResult,
 } from '../../services/paymentService';
-import { Tag, Users, RefreshCw, CheckCircle, Sparkles, Clock, ArrowLeft, Building2 } from 'lucide-react';
+import {
+  Tag,
+  Users,
+  RefreshCw,
+  CheckCircle,
+  Sparkles,
+  Clock,
+  ArrowLeft,
+  Building2,
+  Zap,
+  Share2,
+  BellRing,
+  Layers,
+} from 'lucide-react';
 
 interface SubscriptionPageProps {
   userEmail?: string;
@@ -16,13 +29,35 @@ interface SubscriptionPageProps {
   className?: string;
 }
 
+const VALUE_PILLARS = [
+  {
+    icon: Zap,
+    title: 'Unlimited Direct Client Matches',
+    description: 'AI-powered investor matching connects you directly with buyers without platform cuts or lead fees.',
+  },
+  {
+    icon: Layers,
+    title: 'Off-Market Inventory Feed',
+    description: 'Confidential developer allocations, pre-launch price sheets, and wholesale payment plans.',
+  },
+  {
+    icon: Share2,
+    title: 'Instant WhatsApp Listing Share',
+    description: 'One-click branded client portals with your direct broker phone & WhatsApp contact details.',
+  },
+  {
+    icon: BellRing,
+    title: 'Priority Push Alerts',
+    description: 'Real-time notifications when high-demand off-plan units or exclusive developer allocations drop.',
+  },
+];
+
 export default function SubscriptionPage({
   userEmail = 'agent@realtorbuddy.ae',
   onPaymentInitiated,
   onNavigate,
   className = '',
 }: SubscriptionPageProps) {
-  const [selectedPlanId, setSelectedPlanId] = useState<'monthly' | 'annual'>('monthly');
   const [autoRenew, setAutoRenew] = useState(true);
   const [couponInput, setCouponInput] = useState('');
   const [referralInput, setReferralInput] = useState('');
@@ -33,9 +68,9 @@ export default function SubscriptionPage({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const selectedPlan = SUBSCRIPTION_PLANS[selectedPlanId];
+  const selectedPlan = SUBSCRIPTION_PLANS.monthly;
 
-  // Re-calculate discounts when plan changes
+  // Re-calculate discounts against the 149 AED monthly plan
   const couponDiscountAed = appliedCoupon?.valid
     ? validateCouponCode(appliedCoupon.code || '', selectedPlan.priceAed).discountAed
     : 0;
@@ -78,7 +113,7 @@ export default function SubscriptionPage({
     setErrorMessage(null);
 
     try {
-      const session = await createCheckoutSession(selectedPlanId, userEmail, {
+      const session = await createCheckoutSession('monthly', userEmail, {
         autoRenew,
         couponCode: appliedCoupon?.valid ? appliedCoupon.code : undefined,
         referralCode: appliedReferral?.valid ? appliedReferral.code : undefined,
@@ -137,7 +172,7 @@ export default function SubscriptionPage({
       </div>
 
       {/* Header */}
-      <div className="text-center mb-10">
+      <div className="text-center mb-8">
         <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80 uppercase tracking-widest mb-3">
           Dubai Realtor License Required
         </span>
@@ -156,92 +191,66 @@ export default function SubscriptionPage({
         </div>
       )}
 
-      {/* Plan Selection Grid */}
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
-        {/* Monthly Plan */}
-        <div
-          onClick={() => setSelectedPlanId('monthly')}
-          className={`cursor-pointer rounded-2xl border-2 p-6 transition-all relative ${
-            selectedPlanId === 'monthly'
-              ? 'border-slate-950 bg-stone-50/70 shadow-lg ring-2 ring-amber-500/20'
-              : 'border-stone-200 hover:border-stone-300 bg-white'
-          }`}
-        >
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h3 className="font-serif text-lg font-bold text-slate-900">
-                {SUBSCRIPTION_PLANS.monthly.name}
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">Flexible monthly membership</p>
-            </div>
-            <input
-              type="radio"
-              name="plan"
-              checked={selectedPlanId === 'monthly'}
-              onChange={() => setSelectedPlanId('monthly')}
-              aria-label="Monthly plan"
-              className="h-5 w-5 text-slate-900 focus:ring-amber-500 border-stone-300 cursor-pointer"
-            />
-          </div>
-
-          <div className="mb-4">
-            <span className="font-serif text-3xl font-bold text-slate-900 tabular-nums">499</span>
-            <span className="text-slate-500 font-medium ml-1.5">AED / month</span>
-          </div>
-
-          <ul className="space-y-2.5 text-sm text-slate-600 border-t border-stone-100 pt-4">
-            {SUBSCRIPTION_PLANS.monthly.features.map((feature, idx) => (
-              <li key={idx} className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{feature}</span>
-              </li>
-            ))}
-          </ul>
+      {/* Streamlined Single 149 AED Plan Card */}
+      <div className="bg-white rounded-3xl border-2 border-slate-900 p-6 sm:p-8 shadow-xl relative mb-8 overflow-hidden">
+        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-slate-950 font-bold text-[11px] tracking-wider uppercase px-4 py-1.5 rounded-bl-xl shadow-xs">
+          Exclusive UAE Broker Tier
         </div>
 
-        {/* Annual Plan */}
-        <div
-          onClick={() => setSelectedPlanId('annual')}
-          className={`cursor-pointer rounded-2xl border-2 p-6 transition-all relative ${
-            selectedPlanId === 'annual'
-              ? 'border-slate-950 bg-stone-50/70 shadow-lg ring-2 ring-amber-500/20'
-              : 'border-stone-200 hover:border-stone-300 bg-white'
-          }`}
-        >
-          {SUBSCRIPTION_PLANS.annual.savingsBadge && (
-            <span className="absolute -top-3 right-6 bg-slate-950 text-amber-300 border border-amber-500/30 text-xs font-bold px-3 py-1 rounded-full shadow-md">
-              {SUBSCRIPTION_PLANS.annual.savingsBadge}
-            </span>
-          )}
-
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h3 className="font-serif text-lg font-bold text-slate-900">
-                {SUBSCRIPTION_PLANS.annual.name}
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">Top-producing agencies & elite brokers</p>
-            </div>
-            <input
-              type="radio"
-              name="plan"
-              checked={selectedPlanId === 'annual'}
-              onChange={() => setSelectedPlanId('annual')}
-              aria-label="Annual plan"
-              className="h-5 w-5 text-slate-900 focus:ring-amber-500 border-stone-300 cursor-pointer"
-            />
-          </div>
-
-          <div className="mb-4">
-            <span className="font-serif text-3xl font-bold text-slate-900 tabular-nums">4,990</span>
-            <span className="text-slate-500 font-medium ml-1.5">AED / year</span>
-            <p className="text-xs text-amber-800 font-semibold mt-1">
-              Equivalent to ~415 AED/mo (Save 998 AED)
+        <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-4 mb-6 pb-6 border-b border-stone-200">
+          <div>
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900">
+              {selectedPlan.name}
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Full access to confidential wholesale inventory and direct developer contracts
             </p>
           </div>
+          <div className="flex items-baseline gap-2 shrink-0">
+            <span className="font-serif text-4xl sm:text-5xl font-bold text-slate-900 tabular-nums">
+              149
+            </span>
+            <span className="text-slate-500 font-semibold text-base sm:text-lg">AED / month</span>
+          </div>
+        </div>
 
-          <ul className="space-y-2.5 text-sm text-slate-600 border-t border-stone-100 pt-4">
-            {SUBSCRIPTION_PLANS.annual.features.map((feature, idx) => (
-              <li key={idx} className="flex items-center space-x-2">
+        {/* 4 Luxury Dubai Broker Value Pillars */}
+        <div className="mb-6">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-4 flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-amber-600" />
+            <span>Luxury Broker Value Pillars</span>
+          </h3>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {VALUE_PILLARS.map((pillar, idx) => {
+              const PillarIcon = pillar.icon;
+              return (
+                <div
+                  key={idx}
+                  className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-start gap-3.5"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
+                    <PillarIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">{pillar.title}</h4>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      {pillar.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* All Included Features Checklist */}
+        <div className="pt-4 border-t border-stone-100">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+            Everything Included in Pro Broker Membership:
+          </h4>
+          <ul className="grid sm:grid-cols-2 gap-2.5 text-xs text-slate-700">
+            {selectedPlan.features.map((feature, idx) => (
+              <li key={idx} className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{feature}</span>
               </li>
@@ -263,7 +272,7 @@ export default function SubscriptionPage({
             type="checkbox"
             checked={autoRenew}
             onChange={(e) => setAutoRenew(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+            className="mt-0.5 h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
             aria-label="Enable Auto-Renew (Autopay)"
           />
           <div className="text-xs">
@@ -272,7 +281,7 @@ export default function SubscriptionPage({
               <span>Enable Auto-Renew (Autopay)</span>
             </span>
             <p className="text-slate-500 mt-0.5">
-              Automatically renews your subscription at the end of each billing cycle without interruption. You can cancel anytime.
+              Automatically renews your subscription at 149 AED/month at the end of each billing cycle without interruption. You can cancel anytime.
             </p>
           </div>
         </label>
@@ -297,7 +306,7 @@ export default function SubscriptionPage({
               <button
                 type="button"
                 onClick={() => handleApplyCoupon()}
-                className="px-3.5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors shadow-2xs"
+                className="px-3.5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors shadow-2xs cursor-pointer"
               >
                 Apply
               </button>
@@ -321,7 +330,7 @@ export default function SubscriptionPage({
               <input
                 id="referral-code-input"
                 type="text"
-                placeholder="e.g. DUBAI-BROKER or EMAAR-PARTNER"
+                placeholder="e.g. KARIM-DUBAI or MONIL-VIP"
                 value={referralInput}
                 onChange={(e) => setReferralInput(e.target.value)}
                 className="flex-1 h-9 px-3 text-xs uppercase font-medium bg-slate-50 focus:bg-white text-slate-900 border border-slate-200 focus:border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-hidden transition-all"
@@ -329,7 +338,7 @@ export default function SubscriptionPage({
               <button
                 type="button"
                 onClick={() => handleApplyReferral()}
-                className="px-3.5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors shadow-2xs"
+                className="px-3.5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors shadow-2xs cursor-pointer"
               >
                 Apply
               </button>
@@ -338,7 +347,7 @@ export default function SubscriptionPage({
             {appliedReferral?.valid && (
               <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
                 <CheckCircle className="w-3 h-3 text-emerald-600" />
-                <span>10% referral discount applied (-{referralDiscountAed} AED)</span>
+                <span>{appliedReferral.referrerName || 'Broker'} referral applied (-{referralDiscountAed} AED)</span>
               </p>
             )}
           </div>
@@ -362,7 +371,7 @@ export default function SubscriptionPage({
               <div className="text-2xl sm:text-3xl font-bold">
                 {finalPriceAed.toLocaleString()} AED
                 <span className="text-sm font-normal text-slate-400 ml-1">
-                  /{selectedPlan.interval === 'month' ? 'month' : 'year'}
+                  /month
                 </span>
               </div>
               {totalDiscountAed > 0 && (
@@ -395,7 +404,7 @@ export default function SubscriptionPage({
             <button
               onClick={handleCheckout}
               disabled={isLoading}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 border border-transparent rounded-xl text-base font-bold text-slate-900 bg-white hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-md transition-all disabled:opacity-50"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 border border-transparent rounded-xl text-base font-bold text-slate-900 bg-white hover:bg-slate-100 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-md transition-all disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
                 <span className="flex items-center space-x-2">
@@ -423,7 +432,7 @@ export default function SubscriptionPage({
               ) : finalPriceAed === 0 ? (
                 'Activate Instant Free Access (VIP)'
               ) : (
-                `Pay with Apple Pay / Card (${finalPriceAed.toLocaleString()} AED)`
+                `Pay ${finalPriceAed.toLocaleString()} AED`
               )}
             </button>
 
@@ -436,7 +445,7 @@ export default function SubscriptionPage({
               <span>•</span>
               <span>Visa / Mastercard</span>
               <span>•</span>
-              <span>AED Gateway</span>
+              <span>Ziina AED Gateway</span>
             </div>
           </div>
         </div>
