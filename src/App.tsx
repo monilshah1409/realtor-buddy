@@ -8,6 +8,8 @@ import { AdminApprovals } from './pages/admin/AdminApprovals';
 import { PublicPropertyView } from './pages/public/PublicPropertyView';
 import { PublicShortlistView } from './pages/public/PublicShortlistView';
 import SubscriptionPage from './pages/auth/SubscriptionPage';
+import AuthPage from './pages/auth/AuthPage';
+import ProfilePage from './pages/auth/ProfilePage';
 import PaywallGate from './components/auth/PaywallGate';
 import { FeedbackModal } from './components/feedback/FeedbackModal';
 import { FeedbackButton } from './components/feedback/FeedbackButton';
@@ -23,7 +25,7 @@ import {
   updateLivePropertyStatus,
   submitFeedbackComplaint,
 } from './services/propertyService';
-import { isLiveSupabase } from './lib/supabase';
+import { supabase, isLiveSupabase } from './lib/supabase';
 
 export interface AppProps {
   initialPath?: string;
@@ -250,8 +252,32 @@ export function App({
         notes="Curated collection of premier properties selected specifically for your Dubai investment portfolio."
       />
     );
+  } else if (normalizedPath === '/auth' || normalizedPath === '/login') {
+    // 3. Broker Authentication Gateway: /auth or /login
+    mainContent = (
+      <AuthPage
+        onSuccess={(profile) => {
+          setUserProfile(profile);
+          navigateTo('/');
+        }}
+        onNavigateHome={() => navigateTo('/')}
+      />
+    );
+  } else if (normalizedPath === '/profile') {
+    // 4. Broker Profile Management: /profile
+    mainContent = (
+      <ProfilePage
+        userProfile={userProfile}
+        onProfileUpdate={(updated) => setUserProfile(updated)}
+        onSignOut={() => {
+          setUserProfile(AGENT_PROFILE);
+          navigateTo('/auth');
+        }}
+        onNavigate={navigateTo}
+      />
+    );
   } else if (normalizedPath === '/subscribe') {
-    // 3. Subscription Page (Direct Checkout): /subscribe
+    // 5. Subscription Page (Direct Checkout): /subscribe
     mainContent = (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <SubscriptionPage

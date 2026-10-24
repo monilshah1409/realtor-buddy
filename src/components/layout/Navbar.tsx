@@ -308,6 +308,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                     {isAdmin && <CheckCircle className="w-4 h-4 text-purple-600" />}
                   </button>
+
+                  <div className="border-t border-slate-100 my-1 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigate('/profile');
+                        setIsRoleDropdownOpen(false);
+                      }}
+                      className="w-full text-left p-2 rounded-lg flex items-center gap-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <User className="w-3.5 h-3.5 text-amber-600" />
+                      <span>My Broker Profile</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigate('/auth');
+                        setIsRoleDropdownOpen(false);
+                      }}
+                      className="w-full text-left p-2 rounded-lg flex items-center gap-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Sign In / Switch Persona</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -415,6 +440,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 Admin (Monil & Edwin)
+              </button>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigate('/profile');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex-1 py-2 px-3 rounded-xl text-xs font-medium border border-stone-200 bg-stone-50 text-slate-800 text-center"
+              >
+                My Profile
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigate('/auth');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex-1 py-2 px-3 rounded-xl text-xs font-medium border border-amber-200 bg-amber-50 text-amber-900 text-center"
+              >
+                Sign In
               </button>
             </div>
           </div>
