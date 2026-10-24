@@ -102,14 +102,18 @@ export function validateCouponCode(
 
   const coupon = PRESET_COUPONS[code];
   if (!coupon) {
-    return { valid: false, discountAed: 0, errorMessage: `Coupon "${code}" is invalid or expired.` };
+    return {
+      valid: false,
+      discountAed: 0,
+      errorMessage: 'Coupon code is invalid or expired.',
+    };
   }
 
   let discountAed = 0;
   if (coupon.discountType === 'percentage') {
     discountAed = Math.round((basePriceAed * coupon.discountValue) / 100);
-  } else {
-    discountAed = Math.min(coupon.discountValue, basePriceAed);
+  } else if (coupon.discountType === 'fixed_aed') {
+    discountAed = Math.min(basePriceAed, coupon.discountValue);
   }
 
   return {
@@ -123,11 +127,17 @@ export function validateCouponCode(
 export interface ReferralValidationResult {
   valid: boolean;
   code?: string;
-  discountPercent: number;
-  discountAed: number;
   referrerName?: string;
+  discountAed: number;
+  discountPercent: number;
   errorMessage?: string;
 }
+
+const PRESET_REFERRALS: Record<string, { referrerName: string; discountPercent: number }> = {
+  'KARIM-DUBAI': { referrerName: 'Karim Al-Sayed', discountPercent: 10 },
+  'MONIL-VIP': { referrerName: 'Monil & Edwin HQ', discountPercent: 15 },
+  'EMAAR-AGENT': { referrerName: 'Emaar Signature Partner', discountPercent: 10 },
+};
 
 export function validateReferralCode(
   rawCode: string,
@@ -135,42 +145,33 @@ export function validateReferralCode(
 ): ReferralValidationResult {
   const code = rawCode.trim().toUpperCase();
   if (!code) {
-    return { valid: false, discountPercent: 0, discountAed: 0, errorMessage: 'Please enter a referral code.' };
-  }
-
-  const isValidPattern =
-    code.startsWith('RB-') ||
-    code.endsWith('-DUBAI') ||
-    code.endsWith('-VIP') ||
-    code === 'KARIM-DUBAI' ||
-    code === 'MONIL-PRO' ||
-    code === 'EDWIN-VIP';
-
-  if (!isValidPattern) {
     return {
       valid: false,
-      discountPercent: 0,
       discountAed: 0,
-      errorMessage: `Referral code "${code}" is invalid. Please verify the code with your referring broker.`,
+      discountPercent: 0,
+      errorMessage: 'Please enter a referral code.',
     };
   }
 
-  const discountPercent = 10;
-  const discountAed = Math.round((basePriceAed * discountPercent) / 100);
+  const ref = PRESET_REFERRALS[code];
+  if (!ref) {
+    return {
+      valid: false,
+      discountAed: 0,
+      discountPercent: 0,
+      errorMessage: 'Invalid referral code. Please check with your referring broker.',
+    };
+  }
+
+  const discountAed = Math.round((basePriceAed * ref.discountPercent) / 100);
 
   return {
     valid: true,
     code,
-    discountPercent,
+    referrerName: ref.referrerName,
     discountAed,
-    referrerName: code === 'KARIM-DUBAI' ? 'Karim Al-Sayed' : 'Verified Dubai Broker',
+    discountPercent: ref.discountPercent,
   };
-}
-
-export interface CheckoutSessionOptions {
-  autoRenew?: boolean;
-  couponCode?: string;
-  referralCode?: string;
 }
 
 export interface CheckoutSessionResult {
@@ -181,40 +182,47 @@ export interface CheckoutSessionResult {
   autoRenew: boolean;
 }
 
+export interface CheckoutOptions {
+  autoRenew?: boolean;
+  couponCode?: string;
+  referralCode?: string;
+}
+
 /**
- * Creates a UAE payment gateway hosted checkout session in AED (supporting Ziina / PayTabs)
- * with Apple Pay and UAE debit/credit card redirect.
- *
- * In test or local sandbox mode (when VITE_PAYMENT_GATEWAY_KEY is not configured or set to sandbox),
- * deterministic mock sessions are generated.
+ * Creates a payment session with the UAE Ziina Payment Gateway (or test sandbox).
+ * 
+ * Exact Ziina Specification:
+ * - Endpoint: https://api.ziina.com/v1/payment_intent
+ * - Amount: in fils (100 AED = 10,000 fils). Minimum 2 AED (200 fils).
+ * - Parameters: currency_code ('AED'), message, success_url, cancel_url, test (boolean).
+ * - Returns: redirect_url (to access Ziina payment page) and id.
  */
 export async function createCheckoutSession(
   planId: string,
   userEmail: string,
-  options: CheckoutSessionOptions = {}
+  options: CheckoutOptions = {}
 ): Promise<CheckoutSessionResult> {
   const plan = getSubscriptionPlan(planId);
   if (!plan) {
-    throw new Error(`Invalid plan selected: "${planId}". Available plans: monthly, annual.`);
+    throw new Error(`Invalid plan selected: "${planId}". Expected "monthly" or "annual".`);
   }
 
-  if (!userEmail || !userEmail.trim() || !userEmail.includes('@')) {
-    throw new Error('Valid user email is required for checkout.');
+  if (!userEmail || !userEmail.includes('@')) {
+    throw new Error('Valid user email is required to initiate checkout.');
   }
 
-  const { autoRenew = true, couponCode, referralCode } = options;
+  const autoRenew = options.autoRenew !== undefined ? options.autoRenew : true;
 
+  // Apply discounts
   let totalDiscountAed = 0;
-
-  if (couponCode) {
-    const couponRes = validateCouponCode(couponCode, plan.priceAed);
+  if (options.couponCode) {
+    const couponRes = validateCouponCode(options.couponCode, plan.priceAed);
     if (couponRes.valid) {
       totalDiscountAed += couponRes.discountAed;
     }
   }
-
-  if (referralCode) {
-    const refRes = validateReferralCode(referralCode, plan.priceAed);
+  if (options.referralCode) {
+    const refRes = validateReferralCode(options.referralCode, plan.priceAed);
     if (refRes.valid) {
       totalDiscountAed += refRes.discountAed;
     }
@@ -238,9 +246,23 @@ export async function createCheckoutSession(
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PAYMENT_GATEWAY_KEY) ||
     '';
 
-  // Live Gateway Integration (Ziina Business / PayTabs) when live key is provided
-  if (gatewayKey && !gatewayKey.startsWith('mock_') && !gatewayKey.startsWith('test_')) {
+  const isTestMode = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
+
+  // Live Gateway Integration (Ziina Business) when API key is provided
+  if (gatewayKey && !isTestMode && !gatewayKey.startsWith('mock_')) {
     try {
+      const isTestKey =
+        gatewayKey.includes('test') ||
+        gatewayKey.startsWith('sk_test_') ||
+        gatewayKey.startsWith('test_');
+
+      // Amount in fils (100 AED = 10,000 fils). Min 2 AED (200 fils).
+      const amountInFils = Math.max(200, Math.round(finalPriceAed * 100));
+
+      const origin = typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : 'https://realtorbuddy.ae';
+
       const response = await fetch('https://api.ziina.com/v1/payment_intent', {
         method: 'POST',
         headers: {
@@ -248,11 +270,12 @@ export async function createCheckoutSession(
           Authorization: `Bearer ${gatewayKey}`,
         },
         body: JSON.stringify({
-          amount: finalPriceAed * 100, // Ziina expects amount in fils
+          amount: amountInFils,
           currency_code: 'AED',
           message: `Realtor Buddy ${plan.name} (${userEmail}) - AutoRenew: ${autoRenew}`,
-          success_url: `${window?.location?.origin || 'https://realtorbuddy.ae'}/auth/callback?session_id={PAYMENT_INTENT_ID}`,
-          cancel_url: `${window?.location?.origin || 'https://realtorbuddy.ae'}/subscribe?canceled=true`,
+          success_url: `${origin}/?payment_success=true&session_id={PAYMENT_INTENT_ID}`,
+          cancel_url: `${origin}/subscribe?canceled=true`,
+          test: isTestKey,
         }),
       });
 
@@ -265,9 +288,12 @@ export async function createCheckoutSession(
           isZeroAed: false,
           autoRenew,
         };
+      } else {
+        const errData = await response.text();
+        console.warn('Ziina Payment Intent error response:', errData);
       }
-    } catch {
-      // Fallback to sandbox below if live call is unavailable
+    } catch (networkErr) {
+      console.warn('Ziina API network connection fallback:', networkErr);
     }
   }
 
@@ -289,11 +315,41 @@ export async function createCheckoutSession(
 }
 
 /**
- * Verifies payment session status with the UAE payment gateway.
+ * Verifies payment session status with the UAE payment gateway (Ziina).
+ * Calls GET /payment_intent/{id} when live gateway key is configured.
  */
 export async function verifySessionStatus(sessionId: string): Promise<SubscriptionStatus> {
   if (!sessionId) {
     return 'inactive';
+  }
+
+  const gatewayKey =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PAYMENT_GATEWAY_KEY) ||
+    '';
+
+  const isTestMode = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
+
+  // Live status verification with Ziina API
+  if (gatewayKey && !isTestMode && !sessionId.startsWith('mock_')) {
+    try {
+      const response = await fetch(`https://api.ziina.com/v1/payment_intent/${encodeURIComponent(sessionId)}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${gatewayKey}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const status = data.status; // 'pending' | 'completed' | 'failed' | 'canceled'
+        if (status === 'completed') return 'active';
+        if (status === 'failed') return 'past_due';
+        if (status === 'canceled') return 'canceled';
+        if (status === 'pending') return 'inactive';
+      }
+    } catch (err) {
+      console.warn('Failed to verify status with Ziina:', err);
+    }
   }
 
   // Deterministic mock session status resolution
