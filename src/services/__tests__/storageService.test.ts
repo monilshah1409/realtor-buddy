@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 import { uploadBrochureToOneDrive, compressAndUploadPhoto, compressImage } from '../storageService';
 import { supabase } from '../../lib/supabase';
 
@@ -18,8 +18,15 @@ vi.mock('../../lib/supabase', () => {
 });
 
 describe('Storage Service', () => {
+  const envTokenBackup = import.meta.env.VITE_MS_GRAPH_TOKEN;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    import.meta.env.VITE_MS_GRAPH_TOKEN = '';
+  });
+
+  afterAll(() => {
+    import.meta.env.VITE_MS_GRAPH_TOKEN = envTokenBackup;
   });
 
   describe('uploadBrochureToOneDrive', () => {

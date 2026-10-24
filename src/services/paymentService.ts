@@ -192,7 +192,7 @@ export interface CheckoutOptions {
  * Creates a payment session with the UAE Ziina Payment Gateway (or test sandbox).
  * 
  * Exact Ziina Specification:
- * - Endpoint: https://api.ziina.com/v1/payment_intent
+ * - Endpoint: https://api-v2.ziina.com/api/payment_intent
  * - Amount: in fils (100 AED = 10,000 fils). Minimum 2 AED (200 fils).
  * - Parameters: currency_code ('AED'), message, success_url, cancel_url, test (boolean).
  * - Returns: redirect_url (to access Ziina payment page) and id.
@@ -263,7 +263,7 @@ export async function createCheckoutSession(
         ? window.location.origin
         : 'https://realtorbuddy.ae';
 
-      const response = await fetch('https://api.ziina.com/v1/payment_intent', {
+      const response = await fetch('https://api-v2.ziina.com/api/payment_intent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -332,7 +332,7 @@ export async function verifySessionStatus(sessionId: string): Promise<Subscripti
   // Live status verification with Ziina API
   if (gatewayKey && !isTestMode && !sessionId.startsWith('mock_')) {
     try {
-      const response = await fetch(`https://api.ziina.com/v1/payment_intent/${encodeURIComponent(sessionId)}`, {
+      const response = await fetch(`https://api-v2.ziina.com/api/payment_intent/${encodeURIComponent(sessionId)}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${gatewayKey}`,
