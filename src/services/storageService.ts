@@ -72,28 +72,74 @@ export async function uploadBrochureToOneDrive(file: File): Promise<OneDriveUplo
 
     const data = await response.json();
     const driveItemId = data.id || encodedUniqueFileName;
-    const webUrl = data.webUrl || `https://1drv.ms/b/s!${driveItemId}`;
-    const embedUrl = data.webUrl && data.webUrl.includes('onedrive.live.com')
-      ? data.webUrl
-      : `https://onedrive.live.com/embed?resid=${encodeURIComponent(driveItemId)}`;
+    let shareableUrl = data.webUrl || '';
+
+    // Create an anonymous viewable sharing link using Microsoft Graph API
+    // so anyone viewing the property can view the PDF brochure without tenant authentication
+    if (data.id) {
+      try {
+        const linkResponse = await fetch(
+          `https://graph.microsoft.com/v1.0/me/drive/items/${data.id}/createLink`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${msGraphToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ type: 'view', scope: 'anonymous' }),
+          }
+        );
+        if (linkResponse.ok) {
+          const linkData = await linkResponse.json();
+          if (linkData?.link?.webUrl) {
+            shareableUrl = linkData.link.webUrl;
+          }
+        }
+      } catch (linkErr) {
+        console.warn('Failed to generate anonymous sharing link from Microsoft Graph:', linkErr);
+      }
+    }
+
+    if (!shareableUrl) {
+      shareableUrl = data.webUrl || `https://1drv.ms/b/s!${driveItemId}`;
+    }
+
+    // Determine embed URL:
+    // If SharePoint (e.g. OneDrive for Business / School), append ?action=embedview
+    // If personal onedrive.live.com, format with resid
+    let embedUrl = shareableUrl;
+    if (shareableUrl.includes('sharepoint.com')) {
+      embedUrl = `${shareableUrl}${shareableUrl.includes('?') ? '&' : '?'}action=embedview`;
+    } else if (shareableUrl.includes('onedrive.live.com')) {
+      embedUrl = shareableUrl.includes('embed')
+        ? shareableUrl
+        : `https://onedrive.live.com/embed?resid=${encodeURIComponent(driveItemId)}`;
+    }
 
     return {
-      webUrl,
+      webUrl: shareableUrl,
       embedUrl,
       fileName: file.name,
     };
   }
 
   // Mock / Sandbox fallback for offline dev & test execution
-  const sanitizedName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
+  let localUrl = '';
+  if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+    try {
+      localUrl = URL.createObjectURL(file);
+    } catch {
+      // ignore
+    }
+  }
+
   const uniquePrefix = Date.now().toString(36);
-  const mockResId = `MOCK_ONEDRIVE_${uniquePrefix}_${sanitizedName}`;
-  const embedUrl = `https://onedrive.live.com/embed?resid=${mockResId}`;
-  const webUrl = `https://1drv.ms/b/s!mock-${uniquePrefix}-${encodeURIComponent(file.name)}`;
+  const fallbackUrl =
+    localUrl || `https://1drv.ms/b/s!mock-${uniquePrefix}-${encodeURIComponent(file.name)}`;
 
   return {
-    webUrl,
-    embedUrl,
+    webUrl: fallbackUrl,
+    embedUrl: fallbackUrl,
     fileName: file.name,
   };
 }
@@ -210,6 +256,9 @@ export async function compressImage(
         ctx.drawImage(img, 0, 0, width, height);
 
         if (typeof canvas.toBlob === 'function') {
+          // Use image/jpeg by default for 100% universal compatibility across Safari/WebKit & mobile browsers.
+          // Preserve PNG if the original file was explicitly a PNG.
+          const outputMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
           canvas.toBlob(
             (blob) => {
               cleanup();
@@ -219,7 +268,7 @@ export async function compressImage(
                 resolve(file);
               }
             },
-            'image/webp',
+            outputMime,
             quality
           );
         } else {
@@ -242,11 +291,46 @@ export async function compressImage(
 }
 
 /**
- * Compresses an image client-side and uploads it to the Supabase Storage bucket `'property-photos'`.
- * Returns the public URL of the uploaded image.
+ * Converts a Blob or File to a Base64 Data URL for client-side display or local storage fallback.
  */
-export async function compressAndUploadPhoto(file: File): Promise<string> {
-  const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|avif|gif)$/i.test(file.name);
+export function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (typeof FileReader === 'undefined') {
+      return resolve('data:image/jpeg;base64,');
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Failed to convert image to Data URL'));
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error('FileReader error'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+export interface UploadPhotoOptions {
+  /**
+   * When true, falls back to an optimized base64 Data URL if Supabase Storage is
+   * unreachable (e.g. Safari CORS preflight failure, ad-blockers, network timeouts, or offline usage).
+   */
+  fallbackToDataUrl?: boolean;
+}
+
+/**
+ * Compresses an image client-side and uploads it to the Supabase Storage bucket `'property-photos'`.
+ * Returns the public URL of the uploaded image, or a client-side Data URL if fallback is enabled
+ * and the remote cloud bucket is unreachable.
+ */
+export async function compressAndUploadPhoto(
+  file: File,
+  options?: UploadPhotoOptions
+): Promise<string> {
+  const isImage =
+    file.type.startsWith('image/') ||
+    /\.(jpe?g|png|webp|avif|gif|heic|heif)$/i.test(file.name);
   if (!isImage) {
     throw new Error('Selected file is not an image');
   }
@@ -259,27 +343,50 @@ export async function compressAndUploadPhoto(file: File): Promise<string> {
     uploadPayload = file;
   }
 
-  const fileExt = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
-  const cleanBaseName = file.name
-    .replace(/\.[^/.]+$/, '')
-    .replace(/[^a-zA-Z0-9_-]/g, '_');
+  // Clean and sanitize file extension & filename for strict cross-browser / Safari URI compatibility
+  const rawExt = file.name.includes('.') ? file.name.split('.').pop() || 'jpg' : 'jpg';
+  const cleanExt =
+    rawExt.toLowerCase().replace(/[^a-z0-9]/g, '') ||
+    (uploadPayload.type === 'image/png' ? 'png' : 'jpg');
+  const cleanBaseName =
+    file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .substring(0, 40) || 'property_photo';
   const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const filePath = `${uniqueId}_${cleanBaseName}.${fileExt}`;
+  const filePath = `${uniqueId}_${cleanBaseName}.${cleanExt}`;
 
-  const { data, error } = await supabase.storage
-    .from('property-photos')
-    .upload(filePath, uploadPayload, {
-      contentType: uploadPayload.type || file.type || 'image/jpeg',
-      upsert: true,
-    });
+  const contentType = uploadPayload.type || file.type || 'image/jpeg';
 
-  if (error) {
-    throw new Error(`Failed to upload photo to Supabase: ${error.message}`);
+  let uploadResult: { data: any; error: any } | null = null;
+  try {
+    // Note: upsert: false avoids sending non-simple 'x-upsert' header which triggers Safari CORS preflight issues
+    uploadResult = await supabase.storage
+      .from('property-photos')
+      .upload(filePath, uploadPayload, {
+        contentType,
+        upsert: false,
+      });
+  } catch (networkErr: any) {
+    const errorMsg = networkErr?.message || 'Load failed';
+    if (options?.fallbackToDataUrl) {
+      console.warn(`Supabase storage network exception (${errorMsg}). Falling back to client-side image storage.`);
+      return await blobToDataUrl(uploadPayload);
+    }
+    throw new Error(`Failed to upload photo to Supabase: ${errorMsg}`);
+  }
+
+  if (uploadResult?.error) {
+    if (options?.fallbackToDataUrl) {
+      console.warn(`Supabase storage upload error (${uploadResult.error.message}). Falling back to client-side image storage.`);
+      return await blobToDataUrl(uploadPayload);
+    }
+    throw new Error(`Failed to upload photo to Supabase: ${uploadResult.error.message}`);
   }
 
   const { data: publicUrlData } = supabase.storage
     .from('property-photos')
-    .getPublicUrl(data?.path || filePath);
+    .getPublicUrl(uploadResult?.data?.path || filePath);
 
   return publicUrlData.publicUrl;
 }

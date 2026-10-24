@@ -22,7 +22,7 @@ export const mockProperties: Property[] = [
       'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'
     ],
-    brochure_onedrive_url: 'https://onedrive.live.com/embed?resid=REALTORBUDDY_DOWNTOWN_1BHK',
+    brochure_onedrive_url: 'https://aii01-my.sharepoint.com/:b:/g/personal/monilshah_ict22_adaniuni_ac_in/IQBuRdkUq0YjSKhGKFBCDsz5AWGHdSokp_M5mGFJIWui6C8',
     brochure_file_name: 'Burj_Crown_Executive_Brochure.pdf',
     status: 'global',
     created_by: '00000000-0000-0000-0000-000000000001',
@@ -51,7 +51,7 @@ export const mockProperties: Property[] = [
       'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80'
     ],
-    brochure_onedrive_url: 'https://onedrive.live.com/embed?resid=REALTORBUDDY_MARINA_2BHK',
+    brochure_onedrive_url: 'https://aii01-my.sharepoint.com/:b:/g/personal/monilshah_ict22_adaniuni_ac_in/IQBuRdkUq0YjSKhGKFBCDsz5AWGHdSokp_M5mGFJIWui6C8',
     brochure_file_name: 'Marina_Gate_Brochure.pdf',
     status: 'global',
     created_by: '00000000-0000-0000-0000-000000000001',
@@ -80,7 +80,7 @@ export const mockProperties: Property[] = [
       'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80'
     ],
-    brochure_onedrive_url: 'https://onedrive.live.com/embed?resid=REALTORBUDDY_CANAL_STUDIO',
+    brochure_onedrive_url: 'https://aii01-my.sharepoint.com/:b:/g/personal/monilshah_ict22_adaniuni_ac_in/IQBuRdkUq0YjSKhGKFBCDsz5AWGHdSokp_M5mGFJIWui6C8',
     brochure_file_name: 'Canal_Heights_Studio.pdf',
     status: 'global',
     created_by: '00000000-0000-0000-0000-000000000001',
@@ -109,7 +109,7 @@ export const mockProperties: Property[] = [
       'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80'
     ],
-    brochure_onedrive_url: 'https://onedrive.live.com/embed?resid=REALTORBUDDY_DUBAIHILLS_VILLA',
+    brochure_onedrive_url: 'https://aii01-my.sharepoint.com/:b:/g/personal/monilshah_ict22_adaniuni_ac_in/IQBuRdkUq0YjSKhGKFBCDsz5AWGHdSokp_M5mGFJIWui6C8',
     brochure_file_name: 'Club_Villas_Dubai_Hills.pdf',
     status: 'global',
     created_by: '00000000-0000-0000-0000-000000000001',
@@ -138,7 +138,7 @@ export const mockProperties: Property[] = [
       'https://images.unsplash.com/photo-1567496898669-ee935f5f647a?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?auto=format&fit=crop&w=1200&q=80'
     ],
-    brochure_onedrive_url: 'https://onedrive.live.com/embed?resid=REALTORBUDDY_JVC_1BHK',
+    brochure_onedrive_url: 'https://aii01-my.sharepoint.com/:b:/g/personal/monilshah_ict22_adaniuni_ac_in/IQBuRdkUq0YjSKhGKFBCDsz5AWGHdSokp_M5mGFJIWui6C8',
     brochure_file_name: 'Berkeley_Place_JVC.pdf',
     status: 'global',
     created_by: '00000000-0000-0000-0000-000000000001',
@@ -167,7 +167,7 @@ export const mockProperties: Property[] = [
       'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1600573472591-ee6b68d14c68?auto=format&fit=crop&w=1200&q=80'
     ],
-    brochure_onedrive_url: 'https://onedrive.live.com/embed?resid=REALTORBUDDY_JLT_2BHK',
+    brochure_onedrive_url: 'https://aii01-my.sharepoint.com/:b:/g/personal/monilshah_ict22_adaniuni_ac_in/IQBuRdkUq0YjSKhGKFBCDsz5AWGHdSokp_M5mGFJIWui6C8',
     brochure_file_name: 'Verde_Sobha_JLT.pdf',
     status: 'global',
     created_by: '00000000-0000-0000-0000-000000000001',

@@ -132,7 +132,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
     try {
       const result = await uploadBrochureToOneDrive(file);
       setBrochureFileName(result.fileName);
-      setBrochureOneDriveUrl(result.embedUrl || result.webUrl);
+      setBrochureOneDriveUrl(result.webUrl || result.embedUrl);
     } catch (err: any) {
       setBrochureUploadError(err.message || 'Failed to upload brochure to OneDrive.');
     } finally {
@@ -169,7 +169,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
   const processPhotoFiles = async (fileList: FileList | File[]) => {
     const filesArray = Array.from(fileList);
     const imageFiles = filesArray.filter(
-      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|avif)$/i.test(f.name)
+      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|avif|heic|heif)$/i.test(f.name)
     );
 
     if (imageFiles.length === 0) {
@@ -183,10 +183,19 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
     try {
       const uploadedUrls: string[] = [];
       for (const file of imageFiles) {
-        const url = await compressAndUploadPhoto(file);
-        uploadedUrls.push(url);
+        try {
+          const url = await compressAndUploadPhoto(file, { fallbackToDataUrl: true });
+          uploadedUrls.push(url);
+        } catch (fileErr: any) {
+          console.warn(`Error processing photo ${file.name}:`, fileErr);
+        }
       }
-      setPhotos((prev) => [...prev, ...uploadedUrls]);
+
+      if (uploadedUrls.length > 0) {
+        setPhotos((prev) => [...prev, ...uploadedUrls]);
+      } else {
+        throw new Error('Failed to process selected photos. Please ensure files are valid images.');
+      }
     } catch (err: any) {
       setPhotoUploadError(err.message || 'Failed to upload photo(s).');
     } finally {

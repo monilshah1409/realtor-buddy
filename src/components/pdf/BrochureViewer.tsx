@@ -51,13 +51,19 @@ export const BrochureViewer: React.FC<BrochureViewerProps> = ({
   // Format embed-friendly URL if needed
   const getEmbedUrl = (url: string) => {
     if (!url) return '';
-    // If it's a OneDrive URL, ensure embed format
+    // If it's a SharePoint link (OneDrive for Business/School), ensure embedview action
+    if (url.includes('sharepoint.com')) {
+      if (url.includes('action=embedview')) return url;
+      const separator = url.includes('?') ? '&' : '?';
+      return `${url}${separator}action=embedview`;
+    }
+    // If it's a personal OneDrive URL, ensure embed format
     if (url.includes('onedrive.live.com') && !url.includes('embed')) {
       const separator = url.includes('?') ? '&' : '?';
       return `${url}${separator}action=embedview`;
     }
-    // If it's a standard PDF URL, append toolbar=0 to keep presentation clean
-    if (url.toLowerCase().endsWith('.pdf') && !url.includes('#')) {
+    // If it's a standard PDF URL or blob URL, append toolbar=0 to keep presentation clean
+    if ((url.toLowerCase().endsWith('.pdf') || url.startsWith('blob:')) && !url.includes('#')) {
       return `${url}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`;
     }
     return url;
