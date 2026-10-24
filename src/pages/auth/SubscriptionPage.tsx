@@ -7,17 +7,19 @@ import {
   type CouponValidationResult,
   type ReferralValidationResult,
 } from '../../services/paymentService';
-import { Tag, Users, RefreshCw, CheckCircle, Sparkles, Clock } from 'lucide-react';
+import { Tag, Users, RefreshCw, CheckCircle, Sparkles, Clock, ArrowLeft, Building2 } from 'lucide-react';
 
 interface SubscriptionPageProps {
   userEmail?: string;
   onPaymentInitiated?: (sessionId: string, checkoutUrl: string) => void;
+  onNavigate?: (path: string) => void;
   className?: string;
 }
 
 export default function SubscriptionPage({
   userEmail = 'agent@realtorbuddy.ae',
   onPaymentInitiated,
+  onNavigate,
   className = '',
 }: SubscriptionPageProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<'monthly' | 'annual'>('monthly');
@@ -114,6 +116,26 @@ export default function SubscriptionPage({
 
   return (
     <div className={`max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8 ${className}`}>
+      {/* Top Return Bar */}
+      <div className="flex items-center justify-between mb-8 pb-4 border-b border-stone-200">
+        <button
+          type="button"
+          onClick={() => (onNavigate ? onNavigate('/') : (window.location.href = '/'))}
+          aria-label="Return to Dubai Listings Map"
+          className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-950 transition-colors group cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
+          <span>← Return to Dubai Listings Map</span>
+        </button>
+
+        <div className="flex items-center gap-2">
+          <Building2 className="w-4 h-4 text-amber-600" />
+          <span className="font-serif text-xs font-semibold tracking-wider uppercase text-slate-800">
+            Realtor Buddy Concierge
+          </span>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="text-center mb-10">
         <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80 uppercase tracking-widest mb-3">

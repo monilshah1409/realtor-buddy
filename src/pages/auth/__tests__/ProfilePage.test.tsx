@@ -94,4 +94,40 @@ describe('ProfilePage Component', () => {
       expect(handleSignOut).toHaveBeenCalled();
     });
   });
+
+  it('navigates back to Dubai Map when back button is clicked', () => {
+    const handleNavigate = vi.fn();
+    render(
+      <ProfilePage
+        userProfile={AGENT_PROFILE}
+        onProfileUpdate={vi.fn()}
+        onSignOut={vi.fn()}
+        onNavigate={handleNavigate}
+      />
+    );
+
+    const backBtn = screen.getByText('Back to Dubai Map');
+    fireEvent.click(backBtn);
+
+    expect(handleNavigate).toHaveBeenCalledWith('/');
+  });
+
+  it('renders monogram initials when no avatar URL is provided', () => {
+    const profileNoAvatar = {
+      ...AGENT_PROFILE,
+      avatar_url: '',
+      full_name: 'Tariq Mansoor',
+    };
+
+    render(
+      <ProfilePage
+        userProfile={profileNoAvatar}
+        onProfileUpdate={vi.fn()}
+        onSignOut={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('TM')).toBeInTheDocument();
+  });
 });

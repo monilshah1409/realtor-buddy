@@ -302,6 +302,7 @@ export function App({
             setUserProfile((prev) => (prev ? { ...prev, subscription_status: 'active' } : null));
             navigateTo('/');
           }}
+          onNavigate={navigateTo}
         />
       </div>
     );

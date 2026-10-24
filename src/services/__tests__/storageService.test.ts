@@ -48,8 +48,10 @@ describe('Storage Service', () => {
     it('uses Microsoft Graph API when token is provided', async () => {
       const originalFetch = globalThis.fetch;
       const originalEnvToken = import.meta.env.VITE_MS_GRAPH_TOKEN;
+      const originalFolder = import.meta.env.VITE_ONEDRIVE_FOLDER_NAME;
 
       import.meta.env.VITE_MS_GRAPH_TOKEN = 'mock-ms-token';
+      import.meta.env.VITE_ONEDRIVE_FOLDER_NAME = 'RealtorBuddy';
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -79,6 +81,7 @@ describe('Storage Service', () => {
       } finally {
         globalThis.fetch = originalFetch;
         import.meta.env.VITE_MS_GRAPH_TOKEN = originalEnvToken;
+        import.meta.env.VITE_ONEDRIVE_FOLDER_NAME = originalFolder;
       }
     });
   });
@@ -106,7 +109,14 @@ describe('Storage Service', () => {
 
   describe('getOneDriveWebsiteFolder and backupDataToOneDrive', () => {
     it('returns default or custom website folder in OneDrive', () => {
+      const originalFolder = import.meta.env.VITE_ONEDRIVE_FOLDER_NAME;
+      delete (import.meta.env as any).VITE_ONEDRIVE_FOLDER_NAME;
       expect(getOneDriveWebsiteFolder()).toBe('RealtorBuddy');
+
+      import.meta.env.VITE_ONEDRIVE_FOLDER_NAME = 'Custom_Folder';
+      expect(getOneDriveWebsiteFolder()).toBe('Custom_Folder');
+
+      import.meta.env.VITE_ONEDRIVE_FOLDER_NAME = originalFolder;
     });
 
     it('backs up data to dedicated OneDrive folder', async () => {

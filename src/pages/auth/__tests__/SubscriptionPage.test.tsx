@@ -95,4 +95,14 @@ describe('SubscriptionPage Component', () => {
       ).toBeTruthy();
     });
   });
+
+  it('calls onNavigate to return to homepage when back button is clicked', () => {
+    const handleNavigate = vi.fn();
+    render(<SubscriptionPage onNavigate={handleNavigate} />);
+
+    const backBtn = screen.getByRole('button', { name: /Return to Dubai Listings Map/i });
+    fireEvent.click(backBtn);
+
+    expect(handleNavigate).toHaveBeenCalledWith('/');
+  });
 });
