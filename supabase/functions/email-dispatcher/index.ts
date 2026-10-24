@@ -47,8 +47,15 @@ export interface BrokerOtpRecord {
 // In-memory store for OTP records when database is unavailable (offline / testing)
 export const inMemoryBrokerOtps: BrokerOtpRecord[] = [];
 
+let customSupabaseAdmin: any = null;
+
+export function setCustomSupabaseAdmin(client: any): void {
+  customSupabaseAdmin = client;
+}
+
 export function clearInMemoryBrokerOtps(): void {
   inMemoryBrokerOtps.length = 0;
+  customSupabaseAdmin = null;
 }
 
 export function getLatestMockOtp(email: string, purpose = 'verification'): BrokerOtpRecord | undefined {
@@ -528,8 +535,8 @@ export async function handleEmailDispatcherRequest(req: Request): Promise<Respon
     const supabaseUrl = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_URL') : undefined;
     const supabaseServiceRoleKey = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') : undefined;
 
-    let supabaseAdmin: any = null;
-    if (supabaseUrl && supabaseServiceRoleKey) {
+    let supabaseAdmin: any = customSupabaseAdmin;
+    if (!supabaseAdmin && supabaseUrl && supabaseServiceRoleKey) {
       supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
         auth: {
           persistSession: false,
@@ -550,32 +557,55 @@ export async function handleEmailDispatcherRequest(req: Request): Promise<Respon
       );
 
       if (requireAuth) {
-        if (!authHeader) {
-          return new Response(
-            JSON.stringify({ error: 'Unauthorized: Missing Authorization header for email broadcast' }),
-            {
-              status: 401,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            }
-          );
-        }
+        const allowedTransactionalTemplates = [
+          'broker_welcome_trial',
+          'payment_receipt',
+          'property_review_status',
+          'otp_verification',
+        ];
+        const isSingleRecipient = Array.isArray(payload?.to) && payload.to.length === 1;
+        const isTransactional =
+          !payload?.audience &&
+          isSingleRecipient &&
+          typeof payload?.template === 'string' &&
+          allowedTransactionalTemplates.includes(payload.template);
 
-        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
         let isAuthorized = false;
 
-        if (supabaseServiceRoleKey && token === supabaseServiceRoleKey) {
-          isAuthorized = true;
-        } else if (supabaseAdmin) {
-          try {
-            const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-            if (!userError && user) {
-              const role = user.app_metadata?.role || user.user_metadata?.role || user.role;
-              if (role === 'admin' || (typeof user.email === 'string' && user.email.toLowerCase().includes('admin'))) {
-                isAuthorized = true;
+        if (!authHeader) {
+          if (isTransactional) {
+            // Permit single-recipient transactional email for internal system calls
+            isAuthorized = true;
+          } else {
+            return new Response(
+              JSON.stringify({ error: 'Unauthorized: Missing Authorization header for email broadcast' }),
+              {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               }
+            );
+          }
+        } else {
+          const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+          if (supabaseServiceRoleKey && token === supabaseServiceRoleKey) {
+            isAuthorized = true;
+          } else if (supabaseAdmin) {
+            try {
+              const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+              if (!userError && user) {
+                const role = user.app_metadata?.role || user.user_metadata?.role || user.role;
+                const isAdmin = role === 'admin' || role === 'service_role';
+                if (isAdmin) {
+                  isAuthorized = true;
+                } else if (isTransactional) {
+                  // Permit single-recipient transactional emails for authenticated brokers
+                  isAuthorized = true;
+                }
+              }
+            } catch (authErr) {
+              console.warn('[EMAIL-DISPATCHER] Token validation error:', authErr);
             }
-          } catch (authErr) {
-            console.warn('[EMAIL-DISPATCHER] Token validation error:', authErr);
           }
         }
 
@@ -643,7 +673,9 @@ export async function handleEmailDispatcherRequest(req: Request): Promise<Respon
       }
 
       // Generate cryptographically secure 6-digit numeric string
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const buffer = new Uint32Array(1);
+      crypto.getRandomValues(buffer);
+      const otpCode = (100000 + (buffer[0] % 900000)).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
       if (supabaseAdmin) {
@@ -695,7 +727,6 @@ export async function handleEmailDispatcherRequest(req: Request): Promise<Respon
           success: true,
           action: 'send_otp',
           message: 'Verification code sent',
-          code: otpCode,
         }),
         {
           status: 200,
@@ -921,9 +952,9 @@ export async function handleEmailDispatcherRequest(req: Request): Promise<Respon
               .eq('subscription_status', 'trial')
               .gt('trial_expires_at', nowIso);
           } else if (normalizedAudience === 'expired') {
-            query = query
-              .eq('subscription_status', 'trial')
-              .lte('trial_expires_at', nowIso);
+            query = query.or(
+              `subscription_status.eq.expired,and(subscription_status.eq.trial,trial_expires_at.lte.${nowIso})`
+            );
           }
           // 'all' includes all profiles where email is not null
 

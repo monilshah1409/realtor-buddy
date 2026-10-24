@@ -3,6 +3,7 @@ import {
   handleEmailDispatcherRequest,
   clearInMemoryBrokerOtps,
   inMemoryBrokerOtps,
+  setCustomSupabaseAdmin,
 } from '../../../supabase/functions/email-dispatcher/index';
 
 describe('OTP Generation, Verification & Edge Function Route Authorization', () => {
@@ -39,14 +40,14 @@ describe('OTP Generation, Verification & Edge Function Route Authorization', () 
       expect(body.success).toBe(true);
       expect(body.action).toBe('send_otp');
       expect(body.message).toContain('Verification code sent');
-      expect(body.code).toBeDefined();
-      expect(body.code).toMatch(/^\d{6}$/);
+      expect(body.code).toBeUndefined();
 
       // Verify in-memory record was created
       expect(inMemoryBrokerOtps.length).toBe(1);
       const record = inMemoryBrokerOtps[0];
       expect(record.email).toBe('newbroker@apexrealty.ae');
-      expect(record.otp_code).toBe(body.code);
+      expect(record.otp_code).toBeDefined();
+      expect(record.otp_code).toMatch(/^\d{6}$/);
       expect(record.attempts).toBe(0);
       expect(record.max_attempts).toBe(5);
       expect(record.consumed_at).toBeNull();
@@ -121,8 +122,8 @@ describe('OTP Generation, Verification & Edge Function Route Authorization', () 
         }),
       });
       const sendRes = await handleEmailDispatcherRequest(sendReq);
-      const sendBody = await sendRes.json();
-      const code = sendBody.code;
+      expect(sendRes.status).toBe(200);
+      const code = inMemoryBrokerOtps[0].otp_code;
 
       // 2. Verify with correct code
       const verifyReq = new Request('http://localhost/functions/v1/email-dispatcher', {
@@ -172,8 +173,8 @@ describe('OTP Generation, Verification & Edge Function Route Authorization', () 
         }),
       });
       const sendRes = await handleEmailDispatcherRequest(sendReq);
-      const sendBody = await sendRes.json();
-      const correctCode = sendBody.code;
+      expect(sendRes.status).toBe(200);
+      const correctCode = inMemoryBrokerOtps[0].otp_code;
 
       // 2. Submit wrong code 4 times
       for (let attempt = 1; attempt <= 4; attempt++) {
@@ -240,8 +241,8 @@ describe('OTP Generation, Verification & Edge Function Route Authorization', () 
         }),
       });
       const sendRes = await handleEmailDispatcherRequest(sendReq);
-      const sendBody = await sendRes.json();
-      const code = sendBody.code;
+      expect(sendRes.status).toBe(200);
+      const code = inMemoryBrokerOtps[0].otp_code;
 
       // 2. Artificially expire the stored OTP (15 minutes in the past)
       expect(inMemoryBrokerOtps.length).toBe(1);
@@ -306,8 +307,7 @@ describe('OTP Generation, Verification & Edge Function Route Authorization', () 
       const sendRes = await handleEmailDispatcherRequest(sendReq);
       expect(sendRes.status).toBe(200);
 
-      const sendBody = await sendRes.json();
-      const code = sendBody.code;
+      const code = inMemoryBrokerOtps[0].otp_code;
 
       // verify_otp without auth header
       const verifyReq = new Request('http://localhost/functions/v1/email-dispatcher', {
@@ -411,6 +411,192 @@ describe('OTP Generation, Verification & Edge Function Route Authorization', () 
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(body.audience).toBe('trial');
+    });
+
+    it('rejects mass broadcast with 403 when user email contains "admin" but role is not admin [H1 privilege escalation guard]', async () => {
+      (globalThis as any).Deno = {
+        env: {
+          get: (key: string) => {
+            if (key === 'REQUIRE_AUTH') return 'true';
+            if (key === 'SUPABASE_URL') return 'https://test.supabase.co';
+            if (key === 'SUPABASE_SERVICE_ROLE_KEY') return 'test_service_key_999';
+            return undefined;
+          },
+        },
+      };
+
+      setCustomSupabaseAdmin({
+        auth: {
+          getUser: vi.fn().mockResolvedValue({
+            data: {
+              user: {
+                id: 'impostor-1',
+                email: 'notanadmin@realtorbuddy.ae',
+                role: 'agent',
+                app_metadata: { role: 'agent' },
+              },
+            },
+            error: null,
+          }),
+        },
+        from: vi.fn().mockReturnValue({
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        }),
+      });
+
+      const req = new Request('http://localhost/functions/v1/email-dispatcher', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer user_token_impostor',
+        },
+        body: JSON.stringify({
+          action: 'send_email',
+          audience: 'all',
+          subject: 'Attempted Impostor Broadcast',
+        }),
+      });
+
+      const res = await handleEmailDispatcherRequest(req);
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toContain('Forbidden: Admin access required');
+    });
+
+    it('permits single-recipient transactional emails for authenticated non-admin brokers [H2 transactional email]', async () => {
+      (globalThis as any).Deno = {
+        env: {
+          get: (key: string) => {
+            if (key === 'REQUIRE_AUTH') return 'true';
+            if (key === 'SUPABASE_URL') return 'https://test.supabase.co';
+            if (key === 'SUPABASE_SERVICE_ROLE_KEY') return 'test_service_key_999';
+            return undefined;
+          },
+        },
+      };
+
+      setCustomSupabaseAdmin({
+        auth: {
+          getUser: vi.fn().mockResolvedValue({
+            data: {
+              user: {
+                id: 'agent-123',
+                email: 'broker.agent@apexrealty.ae',
+                role: 'agent',
+                app_metadata: { role: 'agent' },
+              },
+            },
+            error: null,
+          }),
+        },
+        from: vi.fn().mockReturnValue({
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        }),
+      });
+
+      const req = new Request('http://localhost/functions/v1/email-dispatcher', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer agent_valid_token',
+        },
+        body: JSON.stringify({
+          action: 'send_email',
+          to: ['newbuyer@client.ae'],
+          template: 'broker_welcome_trial',
+          subject: 'Welcome to Realtor Buddy VIP',
+          data: { broker_name: 'Ahmed', trial_days: 5 },
+        }),
+      });
+
+      const res = await handleEmailDispatcherRequest(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.dispatchedCount).toBe(1);
+    });
+
+    it('blocks non-admin brokers from sending multi-recipient emails with 403 [H2 broadcast guard]', async () => {
+      (globalThis as any).Deno = {
+        env: {
+          get: (key: string) => {
+            if (key === 'REQUIRE_AUTH') return 'true';
+            if (key === 'SUPABASE_URL') return 'https://test.supabase.co';
+            if (key === 'SUPABASE_SERVICE_ROLE_KEY') return 'test_service_key_999';
+            return undefined;
+          },
+        },
+      };
+
+      setCustomSupabaseAdmin({
+        auth: {
+          getUser: vi.fn().mockResolvedValue({
+            data: {
+              user: {
+                id: 'agent-123',
+                email: 'broker.agent@apexrealty.ae',
+                role: 'agent',
+                app_metadata: { role: 'agent' },
+              },
+            },
+            error: null,
+          }),
+        },
+        from: vi.fn().mockReturnValue({
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        }),
+      });
+
+      const req = new Request('http://localhost/functions/v1/email-dispatcher', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer agent_valid_token',
+        },
+        body: JSON.stringify({
+          action: 'send_email',
+          to: ['recipient1@apex.ae', 'recipient2@apex.ae'],
+          template: 'broker_welcome_trial',
+          subject: 'Unauthorized Multi-Recipient Blast',
+        }),
+      });
+
+      const res = await handleEmailDispatcherRequest(req);
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toContain('Forbidden: Admin access required');
+    });
+
+    it('permits single-recipient transactional email for system calls without authorization header [H2 transactional system call]', async () => {
+      (globalThis as any).Deno = {
+        env: {
+          get: (key: string) => {
+            if (key === 'REQUIRE_AUTH') return 'true';
+            if (key === 'SUPABASE_SERVICE_ROLE_KEY') return 'test_service_key_999';
+            return undefined;
+          },
+        },
+      };
+
+      const req = new Request('http://localhost/functions/v1/email-dispatcher', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'send_email',
+          to: ['payingbroker@marinaestates.ae'],
+          template: 'payment_receipt',
+          subject: 'Receipt for Subscription',
+          data: { amount_aed: 499 },
+        }),
+      });
+
+      const res = await handleEmailDispatcherRequest(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.dispatchedCount).toBe(1);
     });
   });
 });
