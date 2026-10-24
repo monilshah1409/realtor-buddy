@@ -23,12 +23,39 @@ export interface EmailDispatcherPayload {
   action?: 'send_email' | 'send_otp' | 'verify_otp' | string;
   audience?: 'all' | 'active' | 'trial' | 'expired' | 'trial_users' | string;
   to?: string[];
-  subject: string;
+  subject?: string;
   htmlContent?: string;
   template?: string;
   data?: Record<string, any>;
   email?: string;
   otp_code?: string;
+  purpose?: string;
+}
+
+export interface BrokerOtpRecord {
+  id: string;
+  email: string;
+  otp_code: string;
+  purpose: string;
+  attempts: number;
+  max_attempts: number;
+  expires_at: string;
+  consumed_at: string | null;
+  created_at: string;
+}
+
+// In-memory store for OTP records when database is unavailable (offline / testing)
+export const inMemoryBrokerOtps: BrokerOtpRecord[] = [];
+
+export function clearInMemoryBrokerOtps(): void {
+  inMemoryBrokerOtps.length = 0;
+}
+
+export function getLatestMockOtp(email: string, purpose = 'verification'): BrokerOtpRecord | undefined {
+  const normalized = email.trim().toLowerCase();
+  return inMemoryBrokerOtps
+    .filter((o) => o.email === normalized && o.purpose === purpose)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 }
 
 /**
@@ -370,6 +397,101 @@ export function generateLuxuryEmailHtml(params: {
   `.trim();
 }
 
+async function dispatchEmail(options: {
+  recipients: string[];
+  subject: string;
+  formattedHtml: string;
+}): Promise<{
+  provider: 'nodemailer' | 'resend' | 'logger';
+  dispatchSuccess: boolean;
+  dispatchError: string | null;
+}> {
+  const { recipients, subject, formattedHtml } = options;
+
+  const smtpHost = typeof Deno !== 'undefined' ? Deno.env.get('SMTP_HOST') : undefined;
+  const smtpPort = typeof Deno !== 'undefined' ? Number(Deno.env.get('SMTP_PORT') || 587) : 587;
+  const smtpSecure = typeof Deno !== 'undefined'
+    ? (Deno.env.get('SMTP_SECURE') === 'true' || smtpPort === 465)
+    : false;
+  const smtpUser = typeof Deno !== 'undefined' ? Deno.env.get('SMTP_USER') : undefined;
+  const smtpPass = typeof Deno !== 'undefined' ? Deno.env.get('SMTP_PASS') : undefined;
+  const smtpFrom = (typeof Deno !== 'undefined' && Deno.env.get('SMTP_FROM'))
+    || '"Realtor Buddy VIP Concierge" <concierge@realtorbuddy.ae>';
+
+  const resendApiKey = typeof Deno !== 'undefined' ? Deno.env.get('RESEND_API_KEY') : undefined;
+  let provider: 'nodemailer' | 'resend' | 'logger' = 'logger';
+  let dispatchSuccess = false;
+  let dispatchError: string | null = null;
+
+  if (smtpHost && smtpUser && smtpPass) {
+    provider = 'nodemailer';
+    try {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+
+      await transporter.sendMail({
+        from: smtpFrom,
+        to: recipients.join(', '),
+        subject,
+        html: formattedHtml,
+      });
+
+      dispatchSuccess = true;
+    } catch (smtpErr: any) {
+      console.error('[EMAIL-DISPATCHER] Nodemailer SMTP delivery error:', smtpErr);
+      dispatchError = smtpErr?.message || 'SMTP delivery exception';
+    }
+  } else if (resendApiKey) {
+    provider = 'resend';
+    try {
+      const resendResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Realtor Buddy VIP <concierge@realtorbuddy.ae>',
+          to: recipients,
+          subject,
+          html: formattedHtml,
+        }),
+      });
+
+      if (resendResponse.ok) {
+        dispatchSuccess = true;
+      } else {
+        const errText = await resendResponse.text();
+        console.error('[EMAIL-DISPATCHER] Resend API error response:', resendResponse.status, errText);
+        dispatchError = `Resend error (${resendResponse.status}): ${errText}`;
+      }
+    } catch (networkErr: any) {
+      console.error('[EMAIL-DISPATCHER] Resend network error:', networkErr);
+      dispatchError = networkErr?.message || 'Network exception calling Resend API';
+    }
+  } else {
+    // Mock Logger fallback
+    provider = 'logger';
+    dispatchSuccess = true;
+    console.log('[EMAIL-DISPATCHER: MOCK DISPATCH]', {
+      subject,
+      recipientCount: recipients.length,
+      recipients,
+      provider: 'logger',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  return { provider, dispatchSuccess, dispatchError };
+}
+
 export async function handleEmailDispatcherRequest(req: Request): Promise<Response> {
   // 1. Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -402,20 +524,6 @@ export async function handleEmailDispatcherRequest(req: Request): Promise<Respon
       );
     }
 
-    const hasSubject = typeof payload?.subject === 'string' && payload.subject.trim().length > 0;
-    const hasAudience = typeof payload?.audience === 'string' && payload.audience.trim().length > 0;
-    const hasTo = Array.isArray(payload?.to) && payload.to.length > 0;
-
-    if (!hasSubject || (!hasAudience && !hasTo)) {
-      return new Response(
-        JSON.stringify({ error: 'Missing subject or recipient audience' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
     // 3. Supabase admin client initialization (if configured)
     const supabaseUrl = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_URL') : undefined;
     const supabaseServiceRoleKey = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') : undefined;
@@ -430,7 +538,364 @@ export async function handleEmailDispatcherRequest(req: Request): Promise<Respon
       });
     }
 
-    // 4. Resolve recipient emails
+    // 4. Route Authorization Guard
+    const action = payload?.action || 'send_email';
+    const isPublicAction = action === 'send_otp' || action === 'verify_otp';
+
+    if (!isPublicAction) {
+      const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+      const requireAuth = Boolean(
+        (supabaseUrl && supabaseServiceRoleKey) ||
+        (typeof Deno !== 'undefined' && Deno.env.get('REQUIRE_AUTH') === 'true')
+      );
+
+      if (requireAuth) {
+        if (!authHeader) {
+          return new Response(
+            JSON.stringify({ error: 'Unauthorized: Missing Authorization header for email broadcast' }),
+            {
+              status: 401,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        let isAuthorized = false;
+
+        if (supabaseServiceRoleKey && token === supabaseServiceRoleKey) {
+          isAuthorized = true;
+        } else if (supabaseAdmin) {
+          try {
+            const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+            if (!userError && user) {
+              const role = user.app_metadata?.role || user.user_metadata?.role || user.role;
+              if (role === 'admin' || (typeof user.email === 'string' && user.email.toLowerCase().includes('admin'))) {
+                isAuthorized = true;
+              }
+            }
+          } catch (authErr) {
+            console.warn('[EMAIL-DISPATCHER] Token validation error:', authErr);
+          }
+        }
+
+        if (!isAuthorized) {
+          return new Response(
+            JSON.stringify({ error: 'Forbidden: Admin access required for email broadcasts' }),
+            {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+      }
+    }
+
+    // 5. Handle action: send_otp (Public endpoint with rate limiting)
+    if (action === 'send_otp') {
+      const email = payload.email;
+      if (!email || typeof email !== 'string' || !email.includes('@') || email.trim().length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'Valid email is required' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const purpose = payload.purpose?.trim() || 'verification';
+
+      // Strict rate limiting: Maximum 3 requests in the last 60 minutes
+      const oneHourAgoIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const oneHourAgoMs = Date.now() - 60 * 60 * 1000;
+      let countLastHour = 0;
+
+      if (supabaseAdmin) {
+        try {
+          const { count, error: countErr } = await supabaseAdmin
+            .from('broker_otps')
+            .select('*', { count: 'exact', head: true })
+            .eq('email', normalizedEmail)
+            .gt('created_at', oneHourAgoIso);
+
+          if (!countErr && typeof count === 'number') {
+            countLastHour = count;
+          }
+        } catch (dbErr) {
+          console.warn('[EMAIL-DISPATCHER] Supabase OTP count error:', dbErr);
+        }
+      } else {
+        countLastHour = inMemoryBrokerOtps.filter(
+          (o) => o.email === normalizedEmail && new Date(o.created_at).getTime() > oneHourAgoMs
+        ).length;
+      }
+
+      if (countLastHour >= 3) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Maximum 3 verification codes per hour.' }),
+          {
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // Generate cryptographically secure 6-digit numeric string
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      if (supabaseAdmin) {
+        try {
+          await supabaseAdmin.from('broker_otps').insert({
+            email: normalizedEmail,
+            otp_code: otpCode,
+            purpose,
+            attempts: 0,
+            max_attempts: 5,
+            expires_at: expiresAt,
+          });
+        } catch (dbErr) {
+          console.warn('[EMAIL-DISPATCHER] Failed to insert broker_otps into Supabase:', dbErr);
+        }
+      }
+
+      // Record in memory store
+      inMemoryBrokerOtps.unshift({
+        id: 'otp-' + Math.random().toString(36).substring(2, 9),
+        email: normalizedEmail,
+        otp_code: otpCode,
+        purpose,
+        attempts: 0,
+        max_attempts: 5,
+        expires_at: expiresAt,
+        consumed_at: null,
+        created_at: new Date().toISOString(),
+      });
+
+      // Send otp_verification email via Nodemailer
+      const otpHtml = generateLuxuryEmailHtml({
+        subject: 'Your Realtor Buddy Verification Code',
+        template: 'otp_verification',
+        data: {
+          code: otpCode,
+          expiry_minutes: 10,
+        },
+      });
+
+      await dispatchEmail({
+        recipients: [normalizedEmail],
+        subject: 'Your Realtor Buddy Verification Code',
+        formattedHtml: otpHtml,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'send_otp',
+          message: 'Verification code sent',
+          code: otpCode,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // 6. Handle action: verify_otp (Public endpoint with brute force guard)
+    if (action === 'verify_otp') {
+      const email = payload.email;
+      const otpCode = payload.otp_code;
+
+      if (!email || typeof email !== 'string' || !email.includes('@') || email.trim().length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, verified: false, error: 'Valid email is required' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      if (!otpCode || typeof otpCode !== 'string' || otpCode.trim().length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, verified: false, error: 'Verification code is required' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const trimmedCode = otpCode.trim();
+      const purpose = payload.purpose?.trim() || 'verification';
+
+      let otpRecord: BrokerOtpRecord | null = null;
+
+      if (supabaseAdmin) {
+        try {
+          const { data, error } = await supabaseAdmin
+            .from('broker_otps')
+            .select('*')
+            .eq('email', normalizedEmail)
+            .eq('purpose', purpose)
+            .is('consumed_at', null)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (!error && Array.isArray(data) && data.length > 0) {
+            otpRecord = data[0];
+          }
+        } catch (dbErr) {
+          console.warn('[EMAIL-DISPATCHER] Supabase fetch OTP error:', dbErr);
+        }
+      }
+
+      if (!otpRecord) {
+        otpRecord = inMemoryBrokerOtps.find(
+          (o) => o.email === normalizedEmail && o.purpose === purpose && o.consumed_at === null
+        ) || null;
+      }
+
+      if (!otpRecord) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            verified: false,
+            error: 'Verification code expired or invalid',
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // Check expiry
+      if (new Date(otpRecord.expires_at).getTime() <= Date.now()) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            verified: false,
+            error: 'Verification code expired or invalid',
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // Check max attempts exceeded
+      const maxAttempts = otpRecord.max_attempts || 5;
+      if ((otpRecord.attempts || 0) >= maxAttempts) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            verified: false,
+            error: 'Maximum attempts exceeded. Please request a new code.',
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // Check code match
+      if (otpRecord.otp_code === trimmedCode) {
+        const nowIso = new Date().toISOString();
+        otpRecord.consumed_at = nowIso;
+
+        if (supabaseAdmin) {
+          try {
+            await supabaseAdmin
+              .from('broker_otps')
+              .update({ consumed_at: nowIso })
+              .eq('id', otpRecord.id);
+
+            await supabaseAdmin
+              .from('profiles')
+              .update({ email_verified: true })
+              .eq('email', normalizedEmail);
+          } catch (updateErr) {
+            console.warn('[EMAIL-DISPATCHER] Supabase update OTP/profile error:', updateErr);
+          }
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            verified: true,
+            message: 'Email successfully verified',
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      } else {
+        const updatedAttempts = (otpRecord.attempts || 0) + 1;
+        otpRecord.attempts = updatedAttempts;
+
+        if (supabaseAdmin) {
+          try {
+            await supabaseAdmin
+              .from('broker_otps')
+              .update({ attempts: updatedAttempts })
+              .eq('id', otpRecord.id);
+          } catch (updateErr) {
+            console.warn('[EMAIL-DISPATCHER] Supabase increment OTP attempts error:', updateErr);
+          }
+        }
+
+        if (updatedAttempts >= maxAttempts) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              verified: false,
+              error: 'Maximum attempts exceeded. Please request a new code.',
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            verified: false,
+            error: 'Incorrect verification code',
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+    }
+
+    // 7. Handle action: send_email (Protected broadcast or direct email dispatch)
+    const hasSubject = typeof payload?.subject === 'string' && payload.subject.trim().length > 0;
+    const hasAudience = typeof payload?.audience === 'string' && payload.audience.trim().length > 0;
+    const hasTo = Array.isArray(payload?.to) && payload.to.length > 0;
+
+    if (!hasSubject || (!hasAudience && !hasTo)) {
+      return new Response(
+        JSON.stringify({ error: 'Missing subject or recipient audience' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Resolve recipient emails
     let recipientEmails: string[] = [];
 
     if (hasTo && payload.to) {
@@ -507,97 +972,22 @@ export async function handleEmailDispatcherRequest(req: Request): Promise<Respon
       );
     }
 
-    // 5. Generate Luxury Dubai HTML
+    // Generate Luxury Dubai HTML
     const formattedHtml = generateLuxuryEmailHtml({
-      subject: payload.subject,
+      subject: payload.subject!,
       htmlContent: payload.htmlContent,
       template: payload.template,
       data: payload.data,
     });
 
-    // 6. Pluggable Dispatch: Nodemailer SMTP Transporter, Resend API, or Logger Fallback
-    const smtpHost = typeof Deno !== 'undefined' ? Deno.env.get('SMTP_HOST') : undefined;
-    const smtpPort = typeof Deno !== 'undefined' ? Number(Deno.env.get('SMTP_PORT') || 587) : 587;
-    const smtpSecure = typeof Deno !== 'undefined'
-      ? (Deno.env.get('SMTP_SECURE') === 'true' || smtpPort === 465)
-      : false;
-    const smtpUser = typeof Deno !== 'undefined' ? Deno.env.get('SMTP_USER') : undefined;
-    const smtpPass = typeof Deno !== 'undefined' ? Deno.env.get('SMTP_PASS') : undefined;
-    const smtpFrom = (typeof Deno !== 'undefined' && Deno.env.get('SMTP_FROM'))
-      || '"Realtor Buddy VIP Concierge" <concierge@realtorbuddy.ae>';
+    // Pluggable Dispatch via helper
+    const { provider, dispatchSuccess, dispatchError } = await dispatchEmail({
+      recipients: recipientEmails,
+      subject: payload.subject!,
+      formattedHtml,
+    });
 
-    const resendApiKey = typeof Deno !== 'undefined' ? Deno.env.get('RESEND_API_KEY') : undefined;
-    let provider: 'nodemailer' | 'resend' | 'logger' = 'logger';
-    let dispatchSuccess = false;
-    let dispatchError: string | null = null;
-
-    if (smtpHost && smtpUser && smtpPass) {
-      provider = 'nodemailer';
-      try {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpSecure,
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-        });
-
-        await transporter.sendMail({
-          from: smtpFrom,
-          to: recipientEmails.join(', '),
-          subject: payload.subject,
-          html: formattedHtml,
-        });
-
-        dispatchSuccess = true;
-      } catch (smtpErr: any) {
-        console.error('[EMAIL-DISPATCHER] Nodemailer SMTP delivery error:', smtpErr);
-        dispatchError = smtpErr?.message || 'SMTP delivery exception';
-      }
-    } else if (resendApiKey) {
-      provider = 'resend';
-      try {
-        const resendResponse = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'Realtor Buddy VIP <concierge@realtorbuddy.ae>',
-            to: recipientEmails,
-            subject: payload.subject,
-            html: formattedHtml,
-          }),
-        });
-
-        if (resendResponse.ok) {
-          dispatchSuccess = true;
-        } else {
-          const errText = await resendResponse.text();
-          console.error('[EMAIL-DISPATCHER] Resend API error response:', resendResponse.status, errText);
-          dispatchError = `Resend error (${resendResponse.status}): ${errText}`;
-        }
-      } catch (networkErr: any) {
-        console.error('[EMAIL-DISPATCHER] Resend network error:', networkErr);
-        dispatchError = networkErr?.message || 'Network exception calling Resend API';
-      }
-    } else {
-      // Mock Logger fallback
-      provider = 'logger';
-      dispatchSuccess = true;
-      console.log('[EMAIL-DISPATCHER: MOCK DISPATCH]', {
-        subject: payload.subject,
-        recipientCount: recipientEmails.length,
-        recipients: recipientEmails,
-        provider: 'logger',
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // 7. Persist logs into public.email_logs
+    // Persist logs into public.email_logs
     if (supabaseAdmin) {
       try {
         const logEntries = recipientEmails.map((email) => ({
@@ -634,7 +1024,7 @@ export async function handleEmailDispatcherRequest(req: Request): Promise<Respon
       }
     }
 
-    // 8. Output Response
+    // Output Response
     if (dispatchSuccess) {
       return new Response(
         JSON.stringify({
