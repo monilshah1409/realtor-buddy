@@ -71,11 +71,64 @@ export interface Profile {
   phone_number?: string;
   whatsapp_number: string;
   avatar_url?: string;
+  email?: string;
   role: UserRole;
   status: ProfileStatus;
   subscription_status: SubscriptionStatus;
+  trial_expires_at?: string;
   gateway_customer_id?: string;
   created_at: string;
+}
+
+export interface PaymentTransaction {
+  id: string;
+  user_id: string;
+  user_email: string;
+  amount_aed: number;
+  plan_id?: string;
+  promo_code?: string;
+  payment_gateway?: string;
+  gateway_session_id?: string;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  created_at: string;
+}
+
+export interface PromoCoupon {
+  id: string;
+  code: string;
+  discount_type: 'percentage' | 'fixed_aed';
+  discount_value: number;
+  description?: string;
+  is_active: boolean;
+  max_uses: number;
+  times_redeemed: number;
+  valid_until?: string | null;
+  created_at: string;
+}
+
+export interface MarketingCampaign {
+  id: string;
+  title: string;
+  trigger_type: string;
+  subject: string;
+  content_html?: string;
+  is_active: boolean;
+  audience?: string;
+  last_run_at?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface EmailLog {
+  id: string;
+  user_id?: string | null;
+  recipient_email: string;
+  campaign_type?: string | null;
+  subject: string;
+  status: 'sent' | 'failed' | 'logged' | string;
+  error_message?: string | null;
+  sent_at: string;
+  created_at?: string;
 }
 
 export interface ShortlistItem {
