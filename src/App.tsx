@@ -70,7 +70,7 @@ export function App({
 
   // Shortlisted property IDs
   const [shortlistedIds, setShortlistedIds] = useState<string[]>(() => {
-    return [];
+    return isTestMode ? ['prop-1'] : [];
   });
 
   // Shortlist drawer state

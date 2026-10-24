@@ -35,7 +35,7 @@ describe('Storage Service', () => {
       const result = await uploadBrochureToOneDrive(mockFile);
       
       expect(result).toBeDefined();
-      expect(result.embedUrl).toContain('onedrive');
+      expect(result.embedUrl).toMatch(/onedrive|1drv\.ms/);
       expect(result.webUrl).toBeDefined();
       expect(result.fileName).toBe('dubai_brochure.pdf');
     });

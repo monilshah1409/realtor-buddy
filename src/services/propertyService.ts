@@ -169,11 +169,14 @@ export async function insertLiveProperty(property: Property): Promise<boolean> {
       share_token: property.share_token,
     };
 
+    const defaultBrokerUid = '706de559-d7aa-471b-95b1-167ce36fb1f1';
     if (isUuid) {
       payload.id = property.id;
     }
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(createdBy)) {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(createdBy) && !createdBy.startsWith('00000000')) {
       payload.created_by = createdBy;
+    } else {
+      payload.created_by = defaultBrokerUid;
     }
 
     const { error } = await supabase.from('properties').insert(payload);

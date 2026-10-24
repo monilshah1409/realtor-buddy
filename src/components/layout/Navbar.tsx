@@ -27,12 +27,13 @@ export interface NavbarProps {
 }
 
 export const AGENT_PROFILE: Profile = {
-  id: '00000000-0000-0000-0000-000000000002',
+  id: '706de559-d7aa-471b-95b1-167ce36fb1f1',
   full_name: 'Karim Al-Sayed',
   agency_name: 'Premier Dubai Properties',
   phone_number: '+971501234567',
   whatsapp_number: '+971501234567',
   avatar_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80',
+  email: 'realtorbuddy.broker@gmail.com',
   role: 'agent',
   status: 'active',
   subscription_status: 'active',
@@ -40,12 +41,13 @@ export const AGENT_PROFILE: Profile = {
 };
 
 export const ADMIN_PROFILE: Profile = {
-  id: '00000000-0000-0000-0000-000000000001',
+  id: 'a0000000-0000-0000-0000-000000000001',
   full_name: 'Monil & Edwin',
   agency_name: 'Realtor Buddy HQ',
-  phone_number: '+971500000001',
-  whatsapp_number: '+971500000001',
+  phone_number: '+971509998877',
+  whatsapp_number: '+971509998877',
   avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+  email: 'realtorbuddy.admin@gmail.com',
   role: 'admin',
   status: 'active',
   subscription_status: 'active',
