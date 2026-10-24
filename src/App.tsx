@@ -210,6 +210,7 @@ export function App({
   };
 
   // Resolve main page content
+  const normalizedPath = currentPath.replace(/\/$/, '') || '/';
   let mainContent: React.ReactNode;
 
   if (isDeviceBlocked) {
@@ -222,9 +223,9 @@ export function App({
         />
       </div>
     );
-  } else if (currentPath.startsWith('/share/')) {
+  } else if (normalizedPath.startsWith('/share/')) {
     // 1. Public Unauthenticated Property View: /share/:shareToken
-    const token = currentPath.replace('/share/', '');
+    const token = normalizedPath.replace('/share/', '');
     const matchedProperty =
       properties.find((p) => p.share_token === token || p.id === token) || properties[0];
 
@@ -235,7 +236,7 @@ export function App({
         showBackButton={false}
       />
     );
-  } else if (currentPath.startsWith('/shortlist/')) {
+  } else if (normalizedPath.startsWith('/shortlist/')) {
     // 2. Public Unauthenticated Shortlist View: /shortlist/:shareToken
     const shortlistedProps = properties.filter((p) => shortlistedIds.includes(p.id));
     const displayProperties =
@@ -249,7 +250,7 @@ export function App({
         notes="Curated collection of premier properties selected specifically for your Dubai investment portfolio."
       />
     );
-  } else if (currentPath === '/subscribe') {
+  } else if (normalizedPath === '/subscribe') {
     // 3. Subscription Page (Direct Checkout): /subscribe
     mainContent = (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -282,14 +283,14 @@ export function App({
           />
 
           {/* Content Body Based on Current Path */}
-          {currentPath === '/properties/new' ? (
+          {normalizedPath === '/properties/new' ? (
             <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
               <PropertyForm
                 onSubmit={handleCreateProperty}
                 onCancel={() => navigateTo('/')}
               />
             </div>
-          ) : currentPath === '/admin/approvals' ? (
+          ) : normalizedPath === '/admin/approvals' ? (
             <div className="flex-1">
               <AdminApprovals
                 pendingProperties={properties.filter((p) => p.status === 'private')}
