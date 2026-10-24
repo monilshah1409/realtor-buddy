@@ -156,8 +156,8 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
     property.handover_date?.toLowerCase().includes('ready');
 
   const handoverLabel = isReady
-    ? `🔑 ${property.handover_date || 'Ready to Move In'}`
-    : `🏗️ Handover: ${property.handover_date}`;
+    ? `${property.handover_date || 'Ready to Move In'}`
+    : `Handover: ${property.handover_date}`;
 
   const nextPhoto = () => {
     setActivePhotoIndex((prev) => (prev + 1) % photos.length);
@@ -209,15 +209,15 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
                 <img
                   src={avatarUrl}
                   alt={agentName}
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-emerald-500/40 shadow-sm"
+                  className="w-12 h-12 rounded-full object-cover ring-2 ring-amber-400/40 shadow-sm"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-bold flex items-center justify-center text-lg ring-2 ring-emerald-500/40 shadow-sm">
+                <div className="w-12 h-12 rounded-full bg-slate-900 text-amber-300 font-bold flex items-center justify-center text-lg ring-2 ring-amber-400/40 shadow-sm">
                   {agentName.charAt(0)}
                 </div>
               )}
               <div
-                className="absolute -bottom-0.5 -right-0.5 bg-emerald-500 text-white rounded-full p-0.5 shadow-sm"
+                className="absolute -bottom-0.5 -right-0.5 bg-amber-500 text-slate-950 rounded-full p-0.5 shadow-sm"
                 title="Verified Specialist"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -227,11 +227,11 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
             {/* Realtor Name & Agency */}
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-white truncate leading-tight">
+                <span className="font-serif text-base font-bold text-white truncate leading-tight">
                   {agentName}
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800/80 shrink-0">
-                  <ShieldCheck className="w-3 h-3" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-900 text-amber-300 border border-amber-500/30 shrink-0">
+                  <ShieldCheck className="w-3 h-3 text-amber-400" />
                   <span>RERA Verified</span>
                 </span>
               </div>
@@ -249,7 +249,7 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
               onClick={handleShare}
               title="Share property presentation"
               aria-label="Share property presentation"
-              className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-colors border border-slate-700/60"
+              className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors border border-slate-700/60 cursor-pointer"
             >
               <Share2 className="w-4 h-4" />
               <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
@@ -259,9 +259,9 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
             <a
               href={`tel:${phoneNumber}`}
               aria-label="Call Agent"
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs sm:text-sm font-semibold transition-all border border-slate-700 shadow-sm"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs sm:text-sm font-semibold transition-all border border-slate-700 shadow-sm cursor-pointer"
             >
-              <Phone className="w-4 h-4 text-emerald-400" />
+              <Phone className="w-4 h-4 text-amber-400" />
               <span className="hidden sm:inline">Call</span>
             </a>
 
@@ -271,9 +271,9 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Inquire via WhatsApp"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-900/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs sm:text-sm font-extrabold shadow-md shadow-amber-950/30 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
-              <MessageSquare className="w-4 h-4 fill-white" />
+              <MessageSquare className="w-4 h-4 fill-slate-950" />
               <span>WhatsApp</span>
             </a>
           </div>
@@ -289,33 +289,33 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
             <div
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
                 isReady
-                  ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800'
-                  : 'bg-blue-950/80 text-blue-400 border-blue-800'
+                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                  : 'bg-blue-950/80 text-blue-300 border-blue-800'
               }`}
             >
               <span>{handoverLabel}</span>
             </div>
 
             {/* Property Type Badge */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
-              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-900 text-slate-300 border border-slate-800">
+              <Building2 className="w-3.5 h-3.5 text-amber-400" />
               <span>{formatPropertyType(property.property_type)}</span>
             </div>
 
             {/* Exclusive Presentation Badge */}
-            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-950/60 text-amber-400 border border-amber-800/60">
-              <Sparkles className="w-3 h-3" />
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-950/60 text-amber-300 border border-amber-800/60">
+              <Sparkles className="w-3 h-3 text-amber-400" />
               <span>Private Client Preview</span>
             </div>
           </div>
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
+              <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
                 {property.title}
               </h1>
               <div className="flex items-center gap-2 mt-2 text-slate-400 text-sm sm:text-base">
-                <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+                <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>
                   {property.locality}
                   {property.sub_community ? ` • ${property.sub_community}` : ''}
@@ -325,11 +325,11 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
             </div>
 
             {/* Price on Application (Protecting Agent Commission) */}
-            <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl px-5 py-3 text-right shrink-0">
+            <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl px-5 py-3 text-right shrink-0 shadow-lg">
               <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
                 Investment Pricing
               </div>
-              <div className="text-xl sm:text-2xl font-black text-emerald-400">
+              <div className="font-serif text-xl sm:text-2xl font-bold text-amber-300">
                 Price on Application
               </div>
               <div className="text-[11px] text-slate-400">

@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   return (
-    <header className={`bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs ${className}`}>
+    <header className={`bg-white/95 backdrop-blur-md border-b border-stone-200/80 sticky top-0 z-40 shadow-xs ${className}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Brand Logo & Dubai Badge */}
@@ -108,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('/')}
-              className="flex items-center gap-2.5 focus:outline-hidden group text-left"
+              className="flex items-center gap-3 focus:outline-hidden group text-left cursor-pointer"
               aria-label="Realtor Buddy Home"
             >
               {logoAvailable !== false && (
@@ -125,19 +125,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Default Brand Mark & Typography (Active when full logo image is not loaded or during fallback) */}
               <div className={`flex items-center gap-2.5 ${logoAvailable === true ? 'hidden' : 'flex'}`}>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-600/30 group-hover:scale-105 transition-transform shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center text-amber-400 border border-amber-500/30 shadow-md group-hover:border-amber-400 transition-all shrink-0">
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div className="flex flex-col">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xl font-black bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent tracking-tight">
+                    <span className="font-serif text-xl font-bold tracking-tight text-slate-900 group-hover:text-amber-800 transition-colors">
                       Realtor Buddy
                     </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200/80">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-900 border border-amber-200/80">
                       Dubai
                     </span>
                   </div>
-                  <span className="text-[10px] font-semibold text-slate-400 tracking-wide uppercase">
+                  <span className="text-[10px] font-semibold text-slate-500 tracking-wider uppercase">
                     Verified Broker Network
                   </span>
                 </div>
@@ -145,7 +145,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1" aria-label="Main Navigation">
+            <nav className="hidden md:flex items-center gap-1.5" aria-label="Main Navigation">
               {navLinks
                 .filter((link) => link.show)
                 .map((link) => {
@@ -160,16 +160,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                       key={link.path}
                       type="button"
                       onClick={() => onNavigate(link.path)}
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                         isActive
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs'
+                          ? 'bg-slate-900 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
                       <span>{link.name}</span>
                       {link.pill !== null && link.pill !== undefined && (
-                        <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                        <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500 text-slate-950">
                           {link.pill}
                         </span>
                       )}
@@ -181,7 +181,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={onOpenShortlist}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition-all relative"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition-all relative cursor-pointer"
                 aria-label="My Shortlists"
               >
                 <Bookmark className="w-4 h-4 text-slate-400" />
@@ -189,7 +189,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {shortlistCount > 0 && (
                   <span
                     data-testid="shortlist-nav-count"
-                    className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-600 text-white"
+                    className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500 text-slate-950"
                   >
                     {shortlistCount}
                   </span>
@@ -201,7 +201,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Right: Quick Role Switcher & User Profile Badges */}
           <div className="hidden sm:flex items-center gap-3">
             {/* Subscription Active Badge */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/90 shadow-2xs">
               <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
               <span>Subscription Active</span>
             </div>
@@ -212,7 +212,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 data-testid="role-switcher-button"
                 onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
-                className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors bg-white shadow-2xs text-left"
+                className="flex items-center gap-2.5 p-1.5 pr-3 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50/80 transition-all bg-white shadow-2xs text-left cursor-pointer"
                 aria-expanded={isRoleDropdownOpen}
                 aria-haspopup="true"
               >
@@ -220,10 +220,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <img
                     src={userProfile.avatar_url}
                     alt={userProfile.full_name}
-                    className="w-8 h-8 rounded-lg object-cover ring-1 ring-slate-200"
+                    className="w-8 h-8 rounded-lg object-cover ring-1 ring-stone-200"
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs">
+                  <div className="w-8 h-8 rounded-lg bg-slate-900 text-amber-300 font-bold flex items-center justify-center text-xs">
                     {userProfile.full_name.charAt(0)}
                   </div>
                 )}
@@ -237,8 +237,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                       data-testid="profile-role-badge"
                       className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider ${
                         isAdmin
-                          ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          ? 'bg-slate-900 text-amber-300 border border-amber-500/30'
+                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                       }`}
                     >
                       {isAdmin ? 'Admin' : 'Agent'}

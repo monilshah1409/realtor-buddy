@@ -10,6 +10,7 @@ import {
   RotateCcw,
   ExternalLink,
   ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
 
 export interface BrochureViewerProps {
@@ -75,8 +76,8 @@ export const BrochureViewer: React.FC<BrochureViewerProps> = ({
         <p className="text-sm text-slate-500 max-w-sm mb-4 leading-relaxed">
           No PDF brochure has been attached to this property submission yet.
         </p>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-          <span>⚠️</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
           <span>Requires developer verification</span>
         </div>
       </div>

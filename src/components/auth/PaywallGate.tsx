@@ -1,4 +1,5 @@
 import React from 'react';
+import { MessageSquare } from 'lucide-react';
 import { Profile } from '../../types';
 import SubscriptionPage from '../../pages/auth/SubscriptionPage';
 
@@ -77,7 +78,7 @@ export default function PaywallGate({
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center space-x-2 w-full py-2.5 px-4 rounded-xl border border-emerald-300 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100 text-sm font-semibold transition-colors"
             >
-              <span>💬</span>
+              <MessageSquare className="w-4 h-4 text-emerald-600" />
               <span>Expedite via WhatsApp</span>
             </a>
           </div>

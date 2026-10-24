@@ -7,7 +7,7 @@ import {
   type CouponValidationResult,
   type ReferralValidationResult,
 } from '../../services/paymentService';
-import { Tag, Users, RefreshCw, CheckCircle, Sparkles } from 'lucide-react';
+import { Tag, Users, RefreshCw, CheckCircle, Sparkles, Clock } from 'lucide-react';
 
 interface SubscriptionPageProps {
   userEmail?: string;
@@ -116,10 +116,10 @@ export default function SubscriptionPage({
     <div className={`max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8 ${className}`}>
       {/* Header */}
       <div className="text-center mb-10">
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 uppercase tracking-wide mb-3">
+        <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80 uppercase tracking-widest mb-3">
           Dubai Realtor License Required
         </span>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight sm:text-4xl">
+        <h1 className="font-serif text-3xl font-bold text-slate-900 tracking-tight sm:text-4xl lg:text-5xl">
           Subscribe to Realtor Buddy
         </h1>
         <p className="mt-3 max-w-2xl mx-auto text-base text-slate-600 sm:text-lg">
@@ -129,7 +129,7 @@ export default function SubscriptionPage({
       </div>
 
       {errorMessage && (
-        <div className="mb-6 p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-medium">
           {errorMessage}
         </div>
       )}
@@ -141,13 +141,13 @@ export default function SubscriptionPage({
           onClick={() => setSelectedPlanId('monthly')}
           className={`cursor-pointer rounded-2xl border-2 p-6 transition-all relative ${
             selectedPlanId === 'monthly'
-              ? 'border-emerald-600 bg-emerald-50/20 shadow-md ring-2 ring-emerald-600'
-              : 'border-slate-200 hover:border-slate-300 bg-white'
+              ? 'border-slate-950 bg-stone-50/70 shadow-lg ring-2 ring-amber-500/20'
+              : 'border-stone-200 hover:border-stone-300 bg-white'
           }`}
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="font-serif text-lg font-bold text-slate-900">
                 {SUBSCRIPTION_PLANS.monthly.name}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">Flexible monthly membership</p>
@@ -158,26 +158,19 @@ export default function SubscriptionPage({
               checked={selectedPlanId === 'monthly'}
               onChange={() => setSelectedPlanId('monthly')}
               aria-label="Monthly plan"
-              className="h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-slate-300"
+              className="h-5 w-5 text-slate-900 focus:ring-amber-500 border-stone-300 cursor-pointer"
             />
           </div>
 
           <div className="mb-4">
-            <span className="text-3xl font-extrabold text-slate-900">499</span>
-            <span className="text-slate-500 font-medium ml-1">AED / month</span>
+            <span className="font-serif text-3xl font-bold text-slate-900 tabular-nums">499</span>
+            <span className="text-slate-500 font-medium ml-1.5">AED / month</span>
           </div>
 
-          <ul className="space-y-2.5 text-sm text-slate-600 border-t border-slate-100 pt-4">
+          <ul className="space-y-2.5 text-sm text-slate-600 border-t border-stone-100 pt-4">
             {SUBSCRIPTION_PLANS.monthly.features.map((feature, idx) => (
               <li key={idx} className="flex items-center space-x-2">
-                <svg
-                  className="w-4 h-4 text-emerald-600 shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{feature}</span>
               </li>
             ))}
@@ -189,19 +182,19 @@ export default function SubscriptionPage({
           onClick={() => setSelectedPlanId('annual')}
           className={`cursor-pointer rounded-2xl border-2 p-6 transition-all relative ${
             selectedPlanId === 'annual'
-              ? 'border-emerald-600 bg-emerald-50/20 shadow-md ring-2 ring-emerald-600'
-              : 'border-slate-200 hover:border-slate-300 bg-white'
+              ? 'border-slate-950 bg-stone-50/70 shadow-lg ring-2 ring-amber-500/20'
+              : 'border-stone-200 hover:border-stone-300 bg-white'
           }`}
         >
           {SUBSCRIPTION_PLANS.annual.savingsBadge && (
-            <span className="absolute -top-3 right-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+            <span className="absolute -top-3 right-6 bg-slate-950 text-amber-300 border border-amber-500/30 text-xs font-bold px-3 py-1 rounded-full shadow-md">
               {SUBSCRIPTION_PLANS.annual.savingsBadge}
             </span>
           )}
 
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="font-serif text-lg font-bold text-slate-900">
                 {SUBSCRIPTION_PLANS.annual.name}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">Top-producing agencies & elite brokers</p>
@@ -212,29 +205,22 @@ export default function SubscriptionPage({
               checked={selectedPlanId === 'annual'}
               onChange={() => setSelectedPlanId('annual')}
               aria-label="Annual plan"
-              className="h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-slate-300"
+              className="h-5 w-5 text-slate-900 focus:ring-amber-500 border-stone-300 cursor-pointer"
             />
           </div>
 
           <div className="mb-4">
-            <span className="text-3xl font-extrabold text-slate-900">4,990</span>
-            <span className="text-slate-500 font-medium ml-1">AED / year</span>
-            <p className="text-xs text-emerald-700 font-medium mt-1">
+            <span className="font-serif text-3xl font-bold text-slate-900 tabular-nums">4,990</span>
+            <span className="text-slate-500 font-medium ml-1.5">AED / year</span>
+            <p className="text-xs text-amber-800 font-semibold mt-1">
               Equivalent to ~415 AED/mo (Save 998 AED)
             </p>
           </div>
 
-          <ul className="space-y-2.5 text-sm text-slate-600 border-t border-slate-100 pt-4">
+          <ul className="space-y-2.5 text-sm text-slate-600 border-t border-stone-100 pt-4">
             {SUBSCRIPTION_PLANS.annual.features.map((feature, idx) => (
               <li key={idx} className="flex items-center space-x-2">
-                <svg
-                  className="w-4 h-4 text-emerald-600 shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{feature}</span>
               </li>
             ))}
@@ -365,7 +351,19 @@ export default function SubscriptionPage({
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pt-1">
-              <span>{autoRenew ? '🔄 Auto-Renew enabled' : '⏱️ Single billing cycle'}</span>
+              <span className="inline-flex items-center gap-1.5">
+                {autoRenew ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Auto-Renew enabled</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Single billing cycle</span>
+                  </>
+                )}
+              </span>
               <span>•</span>
               <span>Instant activation • UAE tax invoice</span>
             </div>
