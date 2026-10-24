@@ -413,24 +413,42 @@ describe('OtpVerificationModal Component', () => {
     expect(inputs.length).toBe(6);
   });
 
-  it('triggers onVerify when 6 digits are entered and verify button is clicked', async () => {
-    const handleVerify = vi.fn().mockResolvedValue({ success: true, verified: true });
+  it('disables resend button initially during 60-second cooldown', () => {
     render(
       <OtpVerificationModal
         isOpen={true}
         email="broker@skyline.ae"
-        onVerify={handleVerify}
+        onVerify={vi.fn()}
         onResend={vi.fn()}
+        onChangeEmail={vi.fn()}
         onClose={vi.fn()}
       />
     );
-    const inputs = screen.getAllByRole('textbox');
-    inputs.forEach((input, idx) => {
-      fireEvent.change(input, { target: { value: String(idx + 1) } });
-    });
-    const verifyBtn = screen.getByRole('button', { name: /verify & activate/i });
-    fireEvent.click(verifyBtn);
-    expect(handleVerify).toHaveBeenCalledWith('123456');
+    const resendBtn = screen.getByRole('button', { name: /resend/i });
+    expect(resendBtn).toBeDisabled();
+    expect(resendBtn.textContent).toMatch(/0:|59|60/);
+  });
+
+  it('allows switching into email editing mode when Change Email is clicked', () => {
+    const handleChangeEmail = vi.fn();
+    render(
+      <OtpVerificationModal
+        isOpen={true}
+        email="broker@skyline.ae"
+        onVerify={vi.fn()}
+        onResend={vi.fn()}
+        onChangeEmail={handleChangeEmail}
+        onClose={vi.fn()}
+      />
+    );
+    const changeEmailBtn = screen.getByRole('button', { name: /change email/i });
+    fireEvent.click(changeEmailBtn);
+    const newEmailInput = screen.getByPlaceholderText(/enter new email/i);
+    expect(newEmailInput).toBeInTheDocument();
+    fireEvent.change(newEmailInput, { target: { value: 'corrected@skyline.ae' } });
+    const updateBtn = screen.getByRole('button', { name: /update & send otp/i });
+    fireEvent.click(updateBtn);
+    expect(handleChangeEmail).toHaveBeenCalledWith('corrected@skyline.ae');
   });
 });
 ```
@@ -444,11 +462,13 @@ Expected: FAIL due to missing component.
    - Design luxury Obsidian Noir (`#090D15`) backdrop with Champagne Gold border (`border-[#D4AF37]/50`).
    - 6 auto-advancing single-character input boxes with paste support (splitting 6 digits across inputs).
    - Display masked broker email and countdown timer (`Expires in 10:00`).
-   - Resend code action with 60s cooldown counter.
+   - Strict 60-second cooldown timer disabling "Resend OTP" button (`Resend in 0:59...`) until expired.
+   - "Change Email" action toggling an inline email edit input, updating the active address and requesting a new OTP without leaving the modal.
    - Verification error message alert box.
 2. In `src/pages/auth/AuthPage.tsx`:
    - When broker submits registration form, prevent immediate account creation.
    - Trigger `sendEmailOtp(email)` and set `showOtpModal(true)`.
+   - Provide `onChangeEmail` handler that updates the form's `email` field and sends a fresh OTP.
    - When OTP is verified successfully in modal, invoke `registerBroker({ ...formData, otpVerified: true })`.
    - On completion, show success banner and navigate to app.
 

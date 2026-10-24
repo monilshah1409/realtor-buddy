@@ -22,6 +22,8 @@ Additionally, to ensure email hygiene, prevent bot registrations, and protect hi
   - Generate cryptographically secure 6-digit numeric passcodes stored with salted SHA-256 hashes or direct tokens in a new `broker_otps` table.
   - 10-minute expiry window (`expires_at = now() + interval '10 minutes'`).
   - Strict rate limiting: max 3 OTP requests per email per hour, and maximum 5 incorrect attempts before invalidating.
+  - 60-second client-side cooldown on the resend button (`Resend OTP in 0:59...`) to prevent spamming.
+  - In-modal "Change Email" action allowing brokers to fix typos and switch their email address on the fly without losing registration state.
   - Dedicated verification endpoints: `send-otp` and `verify-otp`.
 - **Complete 8-Template Luxury Email Suite:** Implement responsive, inline-styled luxury HTML email templates matching Realtor Buddy's **Obsidian Noir (`#090D15`)** and **Champagne Gold (`#D4AF37`)** brand identity:
   1. `otp_verification`: Prominent 6-digit code box, security alert, and expiration countdown.
@@ -142,7 +144,9 @@ As decided by the user, **brokers must verify their 6-digit OTP before their acc
 1. Prospective broker fills in the registration form (Name, Agency, WhatsApp, Email, Password).
 2. On submit, the system triggers `send_otp` via Nodemailer and opens an elegant Obsidian & Gold 6-digit OTP Modal.
 3. The broker enters the 6-digit code received in their inbox.
-4. Client calls `verify_otp`. Upon successful validation:
+4. **Resend with 1-Minute Cooldown:** The modal enforces a strict 60-second cooldown timer (`Resend code in 59s`). Only when the timer hits zero does the "Resend OTP" button become active. Backend enforces max 3 requests per hour.
+5. **Change Email Option:** If the broker mistyped their email or wishes to use a different address, a "Change Email" button allows them to update the email inline. Doing so resets the OTP, restarts the 60-second cooldown, and dispatches a fresh code to the new address without restarting registration.
+6. Client calls `verify_otp`. Upon successful validation:
    - Account is officially created/activated with `email_verified = true` and `subscription_status = 'trial'` (5-day expiry).
    - The `broker_welcome_trial` email is automatically dispatched via Nodemailer.
    - Broker is logged into Realtor Buddy and redirected to the VIP dashboard.
