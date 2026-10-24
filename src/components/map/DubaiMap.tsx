@@ -14,6 +14,7 @@ export interface DubaiMapProps {
   properties: (Property & { score?: MatchScoreResult })[];
   selectedPropertyId?: string;
   onSelectProperty?: (id: string) => void;
+  onViewPropertyDetails?: (id: string) => void;
   className?: string;
   center?: [number, number];
   zoom?: number;
@@ -113,6 +114,7 @@ export const DubaiMap: React.FC<DubaiMapProps> = ({
   properties = [],
   selectedPropertyId,
   onSelectProperty,
+  onViewPropertyDetails,
   className = '',
   center = DUBAI_CENTER,
   zoom = DEFAULT_ZOOM,
@@ -185,6 +187,7 @@ export const DubaiMap: React.FC<DubaiMapProps> = ({
             property={property}
             isSelected={property.id === selectedPropertyId}
             onSelect={onSelectProperty}
+            onViewDetails={onViewPropertyDetails || onSelectProperty}
           />
         ))}
       </MapContainer>

@@ -324,16 +324,22 @@ export const PublicPropertyView: React.FC<PublicPropertyViewProps> = ({
               </div>
             </div>
 
-            {/* Price on Application (Protecting Agent Commission) */}
+            {/* Price on Application (Protecting Agent Commission for Public View, transparent Wholesale Price for Agent View) */}
             <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl px-5 py-3 text-right shrink-0 shadow-lg">
               <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
-                Investment Pricing
+                {showBackButton && typeof (property as any).price_aed === 'number'
+                  ? 'Agent Wholesale Price'
+                  : 'Investment Pricing'}
               </div>
               <div className="font-serif text-xl sm:text-2xl font-bold text-amber-300">
-                Price on Application
+                {showBackButton && typeof (property as any).price_aed === 'number'
+                  ? `AED ${(property as any).price_aed.toLocaleString()}`
+                  : 'Price on Application'}
               </div>
               <div className="text-[11px] text-slate-400">
-                Direct Buyer Representation
+                {showBackButton && (property as any).developer_name
+                  ? (property as any).developer_name
+                  : 'Direct Buyer Representation'}
               </div>
             </div>
           </div>

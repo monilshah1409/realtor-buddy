@@ -65,4 +65,25 @@ describe('Dashboard Component', () => {
     fireEvent.click(clearBtn);
     expect(handleClearShortlist).toHaveBeenCalled();
   });
+
+  it('redirects agent to property detail page when clicking a property card', () => {
+    const handleNavigate = vi.fn();
+
+    render(
+      <Dashboard
+        properties={mockProperties}
+        agentProfile={AGENT_PROFILE}
+        shortlistedIds={[]}
+        onToggleShortlist={vi.fn()}
+        onClearShortlist={vi.fn()}
+        onNavigate={handleNavigate}
+      />
+    );
+
+    const firstProp = mockProperties[0];
+    const card = screen.getByTestId(`property-card-${firstProp.id}`);
+    fireEvent.click(card);
+
+    expect(handleNavigate).toHaveBeenCalledWith(`/property/${firstProp.id}`);
+  });
 });

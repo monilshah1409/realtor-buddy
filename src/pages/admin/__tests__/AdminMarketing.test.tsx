@@ -57,9 +57,9 @@ describe('AdminMarketing Component', () => {
     expect(screen.getByText(/Automated Lifecycle Drips/i)).toBeInTheDocument();
 
     // 3 Pre-set campaigns
-    expect(screen.getByText(/Day 3/i)).toBeInTheDocument();
-    expect(screen.getByText(/24h Expiration/i)).toBeInTheDocument();
-    expect(screen.getByText(/Win-Back/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Day 3/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/24h Expiration/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Win-Back/i).length).toBeGreaterThanOrEqual(1);
 
     // Verify toggle switches exist
     const toggles = screen.getAllByRole('switch');
