@@ -1,7 +1,7 @@
 # System Design: Nodemailer Direct SMTP Integration, OTP Verification & Luxury Email Template Suite
 
 **Date:** 2026-10-24  
-**Status:** In Review / Ready for Builder Check  
+**Status:** Ready for User Approval (Builder Check Passed)  
 **Target Architecture:** React 18, Vite, TypeScript, Tailwind CSS, Supabase (PostgreSQL, RLS, Edge Functions under Deno runtime), Nodemailer via npm compatibility  
 
 ---
@@ -73,9 +73,14 @@ Additionally, to ensure email hygiene, prevent bot registrations, and protect hi
 
 ## 5. Detailed Technical Architecture
 
-### 5.1 Database Migration (`broker_otps`)
+### 5.1 Database Migration (`broker_otps` & `profiles.email_verified`)
 Create a new migration `supabase/migrations/20261024040000_broker_otps.sql`:
 ```sql
+-- Add email_verified flag to profiles
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false;
+
+-- Table to store temporary OTPs
 CREATE TABLE IF NOT EXISTS public.broker_otps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT NOT NULL,
@@ -103,8 +108,12 @@ USING (true)
 WITH CHECK (true);
 ```
 
-### 5.2 Edge Function Enhancements (`email-dispatcher`)
-Add three primary routes/actions in `supabase/functions/email-dispatcher/index.ts`:
+### 5.2 Edge Function Enhancements (`email-dispatcher`) & Access Control
+The `email-dispatcher` implements route-level authorization:
+- `send_otp` and `verify_otp` are **publicly accessible** (with IP/email rate limits) to allow unauthenticated prospective brokers to register.
+- `send_email` and batch broadcasts strictly **require an authenticated Supabase Admin JWT** (`role = 'admin'`).
+
+The function handles three primary routes/actions:
 
 1. **`action: 'send_otp'`**
    - Receives: `{ email: string, purpose?: string }`
@@ -121,13 +130,24 @@ Add three primary routes/actions in `supabase/functions/email-dispatcher/index.t
    - If match: marks `consumed_at = now()`, marks profile `email_verified = true` (if user exists).
    - Returns `{ success: true, verified: true }`.
 
-3. **`action: 'send_email'` / Default Broadcast**
+3. **`action: 'send_email'` / Batch Broadcasts (Admin Protected)**
+   - Requires Supabase Admin authorization.
    - Receives: `{ to?: string[], audience?: string, template: string, subject: string, data?: Record<string, any>, htmlContent?: string }`
    - Renders matching luxury template with interpolated variables.
    - Dispatches via Nodemailer transporter with connection pooling.
    - Logs result in `email_logs`.
 
-### 5.3 SMTP Configuration Environment Variables
+### 5.3 Onboarding Sequencing & Registration Gating
+As decided by the user, **brokers must verify their 6-digit OTP before their account is activated**:
+1. Prospective broker fills in the registration form (Name, Agency, WhatsApp, Email, Password).
+2. On submit, the system triggers `send_otp` via Nodemailer and opens an elegant Obsidian & Gold 6-digit OTP Modal.
+3. The broker enters the 6-digit code received in their inbox.
+4. Client calls `verify_otp`. Upon successful validation:
+   - Account is officially created/activated with `email_verified = true` and `subscription_status = 'trial'` (5-day expiry).
+   - The `broker_welcome_trial` email is automatically dispatched via Nodemailer.
+   - Broker is logged into Realtor Buddy and redirected to the VIP dashboard.
+
+### 5.4 SMTP Configuration Environment Variables
 - `SMTP_HOST`: e.g. `smtp.gmail.com` or custom mail host
 - `SMTP_PORT`: `465` (SSL) or `587` (TLS)
 - `SMTP_SECURE`: `true` for port 465, `false` for port 587
@@ -135,7 +155,7 @@ Add three primary routes/actions in `supabase/functions/email-dispatcher/index.t
 - `SMTP_PASS`: SMTP app password / mail token
 - `SMTP_FROM`: `"Realtor Buddy VIP Concierge" <concierge@realtorbuddy.ae>`
 
-### 5.4 The 8 Luxury Email Templates
+### 5.5 The 8 Luxury Email Templates
 All emails use the Obsidian Noir (`#090D15`) master layout with Cinzel headings, hairline gold borders (`rgba(212, 175, 55, 0.35)`), and Champagne Gold CTA buttons:
 - **`otp_verification`**: Headline: "Broker Verification Code". Contains an extra-large 32px letter-spaced `#D4AF37` code box with a 10-minute validity disclaimer.
 - **`broker_welcome_trial`**: Headline: "Welcome to Realtor Buddy VIP". Highlights the 5-Day Complimentary Trial, verified off-plan listings, and direct support.
@@ -146,9 +166,9 @@ All emails use the Obsidian Noir (`#090D15`) master layout with Cinzel headings,
 - **`property_review_status`**: Headline: "Off-Plan Listing Status Update". Informs broker if their submitted property was approved or feedback provided.
 - **`admin_broadcast`**: Dynamic headline and editorial body with luxury styling for admin newsletters and alerts.
 
-### 5.5 Client-Side Integration (`authService.ts` & `AdminMarketing.tsx`)
+### 5.6 Client-Side Integration (`authService.ts` & `AdminMarketing.tsx`)
 - In `authService.ts`: Add `sendEmailOtp(email: string)` and `verifyEmailOtp(email: string, code: string)`.
-- In broker registration flow: Display OTP modal / input step before or immediately following account creation.
+- In broker registration flow: Display OTP modal / input step before account creation is completed.
 - In `AdminMarketing.tsx`: Display email template catalog previewer and test dispatcher.
 
 ---
