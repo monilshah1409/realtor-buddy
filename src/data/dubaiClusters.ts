@@ -6,8 +6,8 @@ export const DUBAI_CLUSTERS: Record<string, string[]> = {
   'Business Bay': ['Downtown Dubai', 'DIFC', 'City Walk', 'Al Quoz', 'Al Khail Heights'],
   'DIFC': ['Downtown Dubai', 'Business Bay', 'City Walk', 'Za\'abeel'],
   'City Walk': ['Downtown Dubai', 'Business Bay', 'DIFC', 'Satwa'],
-  'Satwa': ['Downtown Dubai', 'DIFC', 'City Walk', 'Za\'abeel'],
-  'Za\'abeel': ['DIFC', 'Downtown Dubai', 'Dubai Creek Harbour', 'Sobha Hartland', 'Satwa'],
+  'Satwa': ['Downtown Dubai', 'DIFC', 'City Walk', 'Za\'abeel', 'Dubai Maritime City'],
+  'Za\'abeel': ['DIFC', 'Downtown Dubai', 'Dubai Creek Harbour', 'Sobha Hartland', 'Satwa', 'Dubai Maritime City'],
 
   // Coastal, Marina & Waterfront
   'Dubai Marina': ['JLT', 'JBR', 'Bluewaters', 'Palm Jumeirah', 'Al Sufouh', 'The Greens & The Views'],
@@ -18,7 +18,8 @@ export const DUBAI_CLUSTERS: Record<string, string[]> = {
   'Palm Jumeirah': ['Dubai Marina', 'JBR', 'Bluewaters', 'JLT', 'Al Sufouh', 'World Islands'],
   'Al Sufouh': ['Dubai Marina', 'Palm Jumeirah', 'Umm Suqeim', 'The Greens & The Views'],
   'Umm Suqeim': ['Al Sufouh', 'Al Quoz', 'Palm Jumeirah'],
-  'World Islands': ['Palm Jumeirah', 'Dubai Marina'],
+  'World Islands': ['Palm Jumeirah', 'Dubai Marina', 'Dubai Maritime City'],
+  'Dubai Maritime City': ['World Islands', 'Satwa', 'Za\'abeel', 'Downtown Dubai'],
   'The Greens & The Views': ['Dubai Marina', 'JLT', 'Al Sufouh', 'The Springs', 'The Lakes'],
   'The Lakes': ['The Meadows', 'The Springs', 'The Greens & The Views', 'Dubai Marina'],
   'The Meadows': ['The Springs', 'The Lakes', 'JLT', 'JVT'],
@@ -99,13 +100,13 @@ export const DUBAI_LOCALITIES: DubaiLocality[] = [
   {
     name: 'Satwa',
     cluster: 'Central Core',
-    adjacentLocalities: ['Downtown Dubai', 'DIFC', 'City Walk', 'Za\'abeel'],
+    adjacentLocalities: ['Downtown Dubai', 'DIFC', 'City Walk', 'Za\'abeel', 'Dubai Maritime City'],
     coordinates: { latitude: 25.2185, longitude: 55.2678 },
   },
   {
     name: 'Za\'abeel',
     cluster: 'Central Core',
-    adjacentLocalities: ['DIFC', 'Downtown Dubai', 'Dubai Creek Harbour', 'Sobha Hartland', 'Satwa'],
+    adjacentLocalities: ['DIFC', 'Downtown Dubai', 'Dubai Creek Harbour', 'Sobha Hartland', 'Satwa', 'Dubai Maritime City'],
     coordinates: { latitude: 25.2289, longitude: 55.2954 },
   },
 
@@ -143,8 +144,14 @@ export const DUBAI_LOCALITIES: DubaiLocality[] = [
   {
     name: 'World Islands',
     cluster: 'Coastal & Offshore Luxury',
-    adjacentLocalities: ['Palm Jumeirah', 'Dubai Marina'],
+    adjacentLocalities: ['Palm Jumeirah', 'Dubai Marina', 'Dubai Maritime City'],
     coordinates: { latitude: 25.2250, longitude: 55.1650 },
+  },
+  {
+    name: 'Dubai Maritime City',
+    cluster: 'Coastal & Offshore Luxury',
+    adjacentLocalities: ['World Islands', 'Satwa', 'Za\'abeel', 'Downtown Dubai'],
+    coordinates: { latitude: 25.2680, longitude: 55.2750 },
   },
 
   // 3. Emaar Communities (The Greens, Views, Lakes, Meadows, Springs)
