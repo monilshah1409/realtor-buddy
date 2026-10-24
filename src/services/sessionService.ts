@@ -76,42 +76,8 @@ export function getOrCreateDeviceToken(): string {
   return token;
 }
 
-// In-memory sessions store fallback for mock / offline testing
-let inMemorySessionsStore: UserDeviceSession[] = [
-  {
-    id: 'sess-mac-office',
-    user_id: '00000000-0000-0000-0000-000000000002',
-    device_name: 'Apple MacBook Pro 16"',
-    browser: 'Google Chrome',
-    os: 'macOS',
-    session_token: 'dev_mac_office_token',
-    last_active_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    is_active: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-  },
-  {
-    id: 'sess-iphone-personal',
-    user_id: '00000000-0000-0000-0000-000000000002',
-    device_name: 'Apple iPhone 15 Pro',
-    browser: 'Apple Safari',
-    os: 'iOS',
-    session_token: 'dev_iphone_token',
-    last_active_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    is_active: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-  },
-  {
-    id: 'sess-ipad-client',
-    user_id: '00000000-0000-0000-0000-000000000002',
-    device_name: 'Apple iPad Pro 13-inch',
-    browser: 'Apple Safari',
-    os: 'iOS',
-    session_token: 'dev_ipad_token',
-    last_active_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    is_active: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-  },
-];
+// In-memory sessions store fallback for local execution
+let inMemorySessionsStore: UserDeviceSession[] = [];
 
 /**
  * Resets the in-memory session store (used in testing).

@@ -17,6 +17,13 @@ import {
   disconnectDevice,
   type UserDeviceSession,
 } from './services/sessionService';
+import {
+  fetchLiveProperties,
+  insertLiveProperty,
+  updateLivePropertyStatus,
+  submitFeedbackComplaint,
+} from './services/propertyService';
+import { isLiveSupabase } from './lib/supabase';
 
 export interface AppProps {
   initialPath?: string;
@@ -27,7 +34,7 @@ export interface AppProps {
 export function App({
   initialPath,
   initialProfile = AGENT_PROFILE,
-  initialProperties = initialMockProperties,
+  initialProperties,
 }: AppProps) {
   // Current route pathname
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -41,13 +48,21 @@ export function App({
   // Current authenticated profile
   const [userProfile, setUserProfile] = useState<Profile>(initialProfile);
 
+  // In test environments or when explicitly provided as prop, use test fixtures.
+  // In live production, start with clean real data and fetch from Supabase.
+  const isTestMode = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
+  const defaultInitial = initialProperties ?? (isTestMode ? initialMockProperties : []);
+
   // Application properties collection
-  const [properties, setProperties] = useState<Property[]>(initialProperties);
+  const [properties, setProperties] = useState<Property[]>(defaultInitial);
 
   // Shortlisted property IDs
-  const [shortlistedIds, setShortlistedIds] = useState<string[]>(() => [
-    initialProperties[0]?.id || 'prop-1',
-  ]);
+  const [shortlistedIds, setShortlistedIds] = useState<string[]>(() => {
+    if (defaultInitial.length > 0 && isTestMode) {
+      return [defaultInitial[0].id];
+    }
+    return [];
+  });
 
   // Shortlist drawer state
   const [isShortlistDrawerOpen, setIsShortlistDrawerOpen] = useState(false);
@@ -58,6 +73,22 @@ export function App({
   // Device Concurrency Lock State (Max 3 Devices)
   const [isDeviceBlocked, setIsDeviceBlocked] = useState(false);
   const [activeDeviceSessions, setActiveDeviceSessions] = useState<UserDeviceSession[]>([]);
+
+  // Automatically fetch live properties from Supabase when connected
+  useEffect(() => {
+    let isMounted = true;
+    if (isLiveSupabase()) {
+      fetchLiveProperties().then((liveProps) => {
+        if (!isMounted) return;
+        if (liveProps && liveProps.length > 0) {
+          setProperties(liveProps);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Check device concurrency on authenticated routes
   useEffect(() => {
@@ -158,20 +189,24 @@ export function App({
     };
 
     setProperties((prev) => [newProperty, ...prev]);
+    // Persist to live Supabase database
+    await insertLiveProperty(newProperty);
     navigateTo('/');
   };
 
   // Admin approval handlers
-  const handleApproveProperty = (id: string) => {
+  const handleApproveProperty = async (id: string) => {
     setProperties((prev) =>
       prev.map((p) => (p.id === id ? { ...p, status: 'global' as const } : p))
     );
+    await updateLivePropertyStatus(id, 'global');
   };
 
-  const handleRejectProperty = (id: string) => {
+  const handleRejectProperty = async (id: string) => {
     setProperties((prev) =>
       prev.map((p) => (p.id === id ? { ...p, status: 'rejected' as const } : p))
     );
+    await updateLivePropertyStatus(id, 'rejected');
   };
 
   // Resolve main page content
@@ -289,6 +324,9 @@ export function App({
       <FeedbackModal
         isOpen={isFeedbackModalOpen}
         onClose={() => setIsFeedbackModalOpen(false)}
+        onSubmitFeedback={async (submission) => {
+          await submitFeedbackComplaint(submission);
+        }}
         userEmail="agent@realtorbuddy.ae"
         userName={userProfile?.full_name || 'Dubai Broker'}
       />

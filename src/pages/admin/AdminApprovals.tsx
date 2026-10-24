@@ -32,9 +32,7 @@ export const AdminApprovals: React.FC<AdminApprovalsProps> = ({
   onReject,
 }) => {
   // Filter for properties needing verification (private status)
-  const initialItems = (
-    pendingProperties ?? mockProperties.filter((p) => p.status === 'private')
-  ).filter((p) => p.status === 'private');
+  const initialItems = (pendingProperties ?? []).filter((p) => p.status === 'private');
 
   const [queue, setQueue] = useState<Property[]>(initialItems);
   const [selectedId, setSelectedId] = useState<string | null>(
