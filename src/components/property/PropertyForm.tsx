@@ -15,9 +15,11 @@ import {
   Bed,
   Bath,
   ExternalLink,
+  FileSpreadsheet,
 } from 'lucide-react';
 import type { Property, PropertyType, HandoverStatus } from '../../types';
 import { DUBAI_LOCALITIES, DUBAI_CLUSTERS } from '../../data/dubaiClusters';
+import { ImportModal } from './ImportModal';
 import { uploadBrochureToOneDrive, compressAndUploadPhoto } from '../../services/storageService';
 
 export interface PropertyFormProps {
@@ -61,6 +63,9 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
   isSubmitting = false,
   className = '',
 }) => {
+  // Tab: 'manual' (default) or 'import'
+  const [activeTab, setActiveTab] = useState<'manual' | 'import'>('manual');
+
   // Form field state
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
@@ -302,9 +307,63 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
   const submitting = isSubmitting || localSubmitting || isUploadingBrochure || isUploadingPhotos;
 
   return (
+    <div className={`bg-white rounded-2xl shadow-xl border border-slate-100 max-w-4xl mx-auto ${className}`}>
+      {/* Tab Switcher */}
+      <div className="flex border-b border-slate-200 px-6 pt-5">
+        <button
+          type="button"
+          onClick={() => setActiveTab('manual')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+            activeTab === 'manual'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Manual Entry
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('import')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+            activeTab === 'import'
+              ? 'border-amber-600 text-amber-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+          }`}
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          Import File
+          <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full font-medium">
+            Bulk
+          </span>
+        </button>
+      </div>
+
+      {/* Import Tab */}
+      {activeTab === 'import' && (
+        <div className="p-6 sm:p-8 space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Import Properties</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Bulk-import listings from an Excel inventory sheet (.xlsx, .xls, .csv) or a PDF price list.
+            </p>
+          </div>
+          <ImportModal
+            onImport={async (props) => {
+              for (const p of props) {
+                await onSubmit(p);
+              }
+            }}
+            onCancel={onCancel}
+          />
+        </div>
+      )}
+
+      {/* Manual Entry Tab */}
+      {activeTab === 'manual' && (
     <form
       onSubmit={handleSubmit}
-      className={`bg-white rounded-2xl shadow-xl border border-slate-100 p-6 sm:p-8 space-y-8 max-w-4xl mx-auto ${className}`}
+      className="p-6 sm:p-8 space-y-8"
       noValidate
     >
       {/* Header */}
@@ -795,5 +854,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
         </button>
       </div>
     </form>
+      )}
+    </div>
   );
 };
