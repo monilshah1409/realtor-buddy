@@ -2,8 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ImportModal } from '../ImportModal';
-import * as importService from '../../services/importService';
-import * as geocodingService from '../../services/geocodingService';
+import * as importService from '../../../services/importService';
+import * as geocodingService from '../../../services/geocodingService';
 
 describe('ImportModal Location Geocoding & Notification', () => {
   beforeEach(() => {
